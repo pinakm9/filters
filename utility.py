@@ -16,6 +16,7 @@ def timer(func):
 	return new_func
 
 
+
 class Picker(object):
     """
     A class defining an object-picker from an array

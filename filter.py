@@ -3,15 +3,30 @@ import numpy as np
 import  matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 import utility as ut
+import simulate as sm
 
 class Filter(object):
     """
-    A class defining a generic filter
-    algorithm = algorithm that processes the last obeservation
-    start_time = time at first obeservation
-    time_step = time step between consecutive observations
+    Description:
+        A class defining a generic filter
+
+    Attributes:
+        signal:
+        start_time:
+        time_step:
+        algorithm:
+        processed:
+
+    Methods:
+        plot_signals:
     """
     def __init__(self, signal = [], start_time = 0.0, time_step = 1.0):
+        """
+        Args:
+            algorithm = algorithm that processes the last obeservation
+            start_time = time at first obeservation
+            time_step = time step between consecutive observations
+        """
         # assign basic attributes
         self.signal = signal
         self.start_time = start_time
@@ -25,18 +40,23 @@ class Filter(object):
         else:
             self.dimension = 1
 
-    @ut.timer
+    @timer
     def plot_signals(self, signals, labels, line_styles = ['solid', 'dotted', 'dashed'],  max_pts = 100, fig_size = (7,6), time_unit = 'second', coords_to_plot = []):
         """
-        Plots observed and processed signals depending on the dimension of the problem
-        signals = signals to be plotted
-        labels = identifiers for the signals
-        line_styles = line styles for signals
-        max_pts = Maximum number of points (default = 100) to be plotted for each signal
-        fig_size = size of the plot as a tuple (unit of length as in matplotlib standard)
-        time_unit = unit of time to be displayed in x-label for 1-dimensional problems
-        coords_to_plot = list of coordinates to plot, default is [] for which all coordinates are plotted (together in case dimension < 4 and separately otherwise)
-        Returns figure and axes objects created (axes is a list of matplotlib axes in case coords_to_plot is not empty)
+        Description:
+            Plots observed and processed signals depending on the dimension of the problem
+
+        Args:
+            signals: signals to be plotted
+            labels: identifiers for the signals
+            line_styles: line styles for signals
+            max_pts: Maximum number of points (default = 100) to be plotted for each signal
+            fig_size: size of the plot as a tuple (unit of length as in matplotlib standard)
+            time_unit: unit of time to be displayed in x-label for 1-dimensional problems
+            coords_to_plot: list of coordinates to plot, default is [] for which all coordinates are plotted (together in case dimension < 4 and separately otherwise)
+
+        Returns:
+            figure and axes objects created (axes is a list of matplotlib axes in case coords_to_plot is not empty)
         """
         # prepare a figure
         fig = plt.figure(figsize = fig_size)
@@ -89,10 +109,33 @@ class Filter(object):
         plt.show()
         return fig, ax
 
-"""
-    def compare(self):
-        ""
-        Plots the observed and processed signals
-        ""
-        pass
-"""
+
+class ModelPF():
+    """
+    Description:
+        A class defining dynamic and measurement models for a particle filter.
+
+    Attributes:
+        hidden_state: a MarkovChain object simulating the hidden state
+        observation: an SPConditional object simulating the observations
+    """
+    def __init__(self, size, prior, dynamic_algorithm, measurement_algorithm):
+        """
+        Args:
+            size: length of the MarkovChain self.hidden_state
+            prior: a Simulation object for defining the MarkovChain self.hidden_state
+            dynamic_algorithm: algorithm for defining self.hidden_state
+            measurement_algorithm: algorithm for defining self.observation
+        """
+        # create the Markov chain of hidden state X_t and observation Y_t
+        self.hidden_state = sm.MarkovChain(size = size, prior = prior, algorithm = dynamic_algorithm)
+        self.observation = sm.SPConditional(conditions = self.hidden_state.sims, algorithm = measurement_algorithm)
+
+
+class ParticleFilter():
+
+    def __init__(self, model):
+        self.hidden_state =
+        self.observation =
+
+    def update(self):

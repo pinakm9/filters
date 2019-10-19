@@ -453,17 +453,20 @@ class MarkovChain(StochasticProcess):
         Parent class : StochasticProcess
 
     Attributes (extra):
+        conditional_pdf: p(x_k|x_(k-1)), default = None
         algorithm_args:
     """
 
-    def __init__(self, size, prior, algorithm, **algorithm_args):
+    def __init__(self, size, prior, algorithm, conditional_pdf = None, **algorithm_args):
         """
         Args:
             size: number of random variables in the chain
             prior: Simulation object for the first random variable in the chain
             algorithm: algorithm for creating Simulation objects in the chain, accepts the previous simulation object in the chain as the argument 'past'
+            conditional_pdf: p(x_k|x_(k-1)), default = None
             algorithm_args: dict of keyword arguments that are passed to algorithm
         """
+        self.conditional_pdf = conditional_pdf
         self.algorithm_args = algorithm_args
         sims = [prior]
         for i in range(size - 1):
@@ -478,13 +481,15 @@ class SPConditional(StochasticProcess):
         where X_t is a given StochasticProcess.
         Parent class : StochasticProcess
     """
-    def __init__(self, conditions, algorithm, **algorithm_args):
+    def __init__(self, conditions, algorithm, conditional_pdf = None, **algorithm_args):
         """
         Args:
             conditions: list of Simulation objects that make up X_t
             algorithm: algorithm for creating Simulation objects for Y_t
+            conditional_pdf: p(y_k|x_k), default = None
             algorithm_args: dict of keyword arguments that are passed to algorithm
         """
+        self.conditional_pdf = conditional_pdf
         self.algorithm_args = algorithm_args
         sims = []
         for condition in conditions:

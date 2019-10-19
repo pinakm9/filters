@@ -113,29 +113,68 @@ class Filter(object):
 class ModelPF():
     """
     Description:
-        A class defining dynamic and measurement models for a particle filter.
+        A class for defining dynamic and measurement models for a particle filter.
 
     Attributes:
         hidden_state: a MarkovChain object simulating the hidden state
         observation: an SPConditional object simulating the observations
     """
-    def __init__(self, size, prior, dynamic_algorithm, measurement_algorithm):
+    def __init__(self, size, prior, dynamic_algorithm, measurement_algorithm, dynamic_pdf, measurement_pdf):
         """
         Args:
             size: length of the MarkovChain self.hidden_state
             prior: a Simulation object for defining the MarkovChain self.hidden_state
             dynamic_algorithm: algorithm for defining self.hidden_state
             measurement_algorithm: algorithm for defining self.observation
+            dynamic_pdf: p(x_k|x_(k-1)), x_k is the hidden state
+            measurement_pdf: p(y_k|x_k), y_k is the observation
         """
         # create the Markov chain of hidden state X_t and observation Y_t
-        self.hidden_state = sm.MarkovChain(size = size, prior = prior, algorithm = dynamic_algorithm)
-        self.observation = sm.SPConditional(conditions = self.hidden_state.sims, algorithm = measurement_algorithm)
+        self.hidden_state = sm.MarkovChain(size = size, prior = prior, algorithm = dynamic_algorithm, conditional_pdf = dynamic_pdf)
+        self.observation = sm.SPConditional(conditions = self.hidden_state.sims, algorithm = measurement_algorithm, conditional_pdf = measurement_pdf)
 
+class ParticleFilter(Filter):
+    """
+    Description:
+         A class for defining particle filters
+         Parent class: Filter
 
-class ParticleFilter():
+    Attributes (extra):
+        model: a ModelPF object containing the dynamic and measurement models
+        particles: particles used to estimate the filtering distribution
+        particle_count: number of particles
+        weights: weights computed by the particle filter
+        current_time: integer-valued time starting at 0 denoting index of current hidden state
+    """
+    def __init__(self, model, particle_count, importance_pdf = None):
+        """
+        Args:
+            model: a ModelPF object containing the dynamic and measurement models
+            particle_count: number of particles to be used
+        """
+        self.model = model
+        # draw self.particle_count samples from the prior distribution and reshape for hstacking later
+        self.particles = np.reshape(model.hidden_state.sims[0].generate(particle_count), (particle_count, 1))
+        self.weights = np.array([1.0/particle_count]*particle_count)
+        self.particle_count = particle_count
+        self.current_time = 0
+        # if importance density is not provided we use the bootstrap filter
+        if importance_pdf is None:
+            importance_pdf = self.model.hidden_state.conditional_pdf
+        self.importance_pdf = importance_pdf
 
-    def __init__(self, model):
-        self.hidden_state =
-        self.observation =
-
-    def update(self):
+    def update(self, observation):
+        """
+        Description:
+            Updates weights according to the last observation
+        """
+        self.current_time += 1
+        new_dimension = np.reshape(self.model.hidden_state.sim[self.current_time].generate(self.particle_count), (self.particle_count, 1))
+        self.particles = np.hstack((self.particles, new_dimension))
+        for i, w in enumerate(self.weights):
+            prob1 = self.model.hidden_state.conditional_pdf(self.particles[i][-1], self.particles[i][-2])
+            prob2 = self.model.observation.conditional_pdf(observation, self.particles[i][-1])
+            prob3 = self.importance_pdf(self.particles[i][-1], self.particles[i][-2])
+            self.weights[i] = w*prob1*prob2/prob3
+        # normalize weights
+        self.weights /= self.weights.sum()

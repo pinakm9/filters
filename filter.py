@@ -44,7 +44,6 @@ class Filter(object):
         else:
             self.dimension = dimension
 
-    @ut.timer
     def plot_signals(self, signals, labels, line_styles = ['solid', 'dotted', 'dashed'],  max_pts = 100, fig_size = (7,6), time_unit = 'second', coords_to_plot = []):
         """
         Description:
@@ -72,11 +71,11 @@ class Filter(object):
         # plot signals against time
         if self.dimension == 1:
             ax = fig.add_subplot(111)
-            t = np.linspace(self.start_time, self.start_time + (len(self.signal)-1)*self.time_step, num = len(self.signal))
+            t = np.linspace(self.start_time, self.start_time + (len(signals[0])-1)*self.time_step, num = len(signals[0]))
             for i, signal in enumerate(signals):
                 signal = ut.Picker(signal).equidistant(objs_to_pick = max_pts)
                 ax.plot(t, signal, label = labels[i], linestyle = line_styles[i])
-            ax.xlabel('time({})'.format(time_unit))
+            ax.set(xlabel = 'time({})'.format(time_unit))
             ax.legend()
 
         # plot all coordinatres of the signals together, time is not shown
@@ -261,3 +260,17 @@ class ParticleFilter(Filter):
         for i in range(self.particle_count):
             result += self.weights[i]*ut.delta(x, self.particles[i][time])
         return result
+
+    def compute_hidden_state(self, method = 'mean'):
+        """
+        """
+        self.hidden_state = np.zeros(self.model.hidden_state.size)
+
+        if method == 'mode':
+            # for each time find the most likely particle
+            for k in range(self.model.hidden_state.size):
+                self.hidden_state[k] = self.particles[np.array(list(map(lambda x: self.filtering_pdf(x, k), self.particles[:, k]))).argmax()][k]
+        elif method == 'mean':
+            for k in range(self.model.hidden_state.size):
+                self.hidden_state[k] = np.average(a = list(map(lambda x: self.filtering_pdf(x, k), self.particles[:, k])), weights = self.weights)
+        return self.hidden_state

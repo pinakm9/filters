@@ -265,12 +265,13 @@ def rejection(target_rv, helper_sim, ratio_bound):
 class Simulation(object):
     """
     Description:
-        This is a class for simulating a random variable.
+        This is a class for simulating a random variable X: Omega -> R^d.
 
     Attributes:
         rv: random variable to simulate, default = None
         current_value: last simulated value of self.rv
         algorithm: function that returns a single smaple
+        dimension: dimension of the codomain of the random variable d
         algorithm_args: keyword arguments for constructing self.algorithm which produces a single sample
         ecdf: empirical distribution of the generated samples (created during the first call to compare)
 
@@ -299,17 +300,20 @@ class Simulation(object):
         # self.gamma = np.random.gamma # gamma distribution, needed for multiprocessing compatibility
         self.set_algorithm(algorithm, **algorithm_args)
 
-    @ut.timer
     def generate(self, sample_size):
         """
         Description:
             Generates a batch of samples using self.algorithm
             args are the arguments that are passed to self.algorithm ???
+
+        Returns:
+            self.samples
         """
         self.size = sample_size # number of samples to be collected
         self.samples = [self.algorithm() for i in range(self.size)] # container for the collected samples
         self.mean = np.mean(self.samples)
         self.var = np.var(self.samples, ddof = 1) # unbiased estimator
+        return self.samples
 
     def compare(self, file_path = None, display = True, target_cdf_pts = 100):
         """
@@ -357,7 +361,7 @@ class Simulation(object):
     def set_algorithm(self, algorithm, **algorithm_args):
         """
         Description:
-            Constructs self.algorithm
+            Constructs self.algorithm and sets self.dimension
 
         Args:
             algorithm: a function that produces a single sample of target_rv
@@ -378,6 +382,15 @@ class Simulation(object):
             return self.current_value
 
         self.algorithm = algorithm_
+
+        # figure out the dimension of the problem
+        sample = self.algorithm()
+        if np.isscalar(sample):
+            self.dimension = 1
+        else:
+            self.dimension = len(sample)
+
+
 
 
 
@@ -431,8 +444,12 @@ class StochasticProcess(object):
 
             Args:
                 num_paths: number of paths to be generated
+
+            Returns:
+                self.paths
             """
             self.paths = np.array([self.generate_path() for i in range(num_paths)]) # container for the generated paths
+            return self.paths
 
         def avg_path(self):
             """
@@ -463,7 +480,7 @@ class MarkovChain(StochasticProcess):
             size: number of random variables in the chain
             prior: Simulation object for the first random variable in the chain
             algorithm: algorithm for creating Simulation objects in the chain, accepts the previous simulation object in the chain as the argument 'past'
-            conditional_pdf: p(x_k|x_(k-1)), default = None
+            conditional_pdf: p(x_k|x_(k-1)), default = None, it's a function of type p(x, condition) (argument names can be anything)
             algorithm_args: dict of keyword arguments that are passed to algorithm
         """
         self.conditional_pdf = conditional_pdf
@@ -485,8 +502,8 @@ class SPConditional(StochasticProcess):
         """
         Args:
             conditions: list of Simulation objects that make up X_t
-            algorithm: algorithm for creating Simulation objects for Y_t
-            conditional_pdf: p(y_k|x_k), default = None
+            algorithm: algorithm for creating Simulation objects for Y_t, accepts the condition as a Simulation object in the argument 'condition'
+            conditional_pdf: p(y_k|x_k), default = None, it's a function of type p(y, condition) (argument names can be anything)
             algorithm_args: dict of keyword arguments that are passed to algorithm
         """
         self.conditional_pdf = conditional_pdf

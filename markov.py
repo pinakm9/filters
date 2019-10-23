@@ -47,3 +47,13 @@ def algorithm(past):
 
 mc = sm.MarkovChain(size = 10, prior = prior, algorithm = algorithm)
 print(mc.generate_path())
+
+"""
+def process(self):
+    """
+    """
+    indices = np.zeros(self.observation.size)
+    for i in range(self.observation.size):
+        for
+        indices[i] =
+"""

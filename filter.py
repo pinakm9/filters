@@ -4,11 +4,12 @@ import  matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 import utility as ut
 import simulate as sm
+import collections as cl
 
 class Filter(object):
     """
     Description:
-        A class defining a generic filter
+        A class defining a generic filter. Processes signals that are linear arrays and not matrices and tensors.
 
     Attributes:
         signal:
@@ -20,12 +21,12 @@ class Filter(object):
     Methods:
         plot_signals:
     """
-    def __init__(self, signal = [], start_time = 0.0, time_step = 1.0):
+    def __init__(self, signal = [], dimension = None, start_time = 0.0, time_step = 1.0):
         """
         Args:
-            algorithm = algorithm that processes the last obeservation
-            start_time = time at first obeservation
-            time_step = time step between consecutive observations
+            signal: signal to be processed
+            start_time: time at first obeservation, default = 0.0
+            time_step: time step between consecutive observations, default = 1.0
         """
         # assign basic attributes
         self.signal = signal
@@ -35,12 +36,15 @@ class Filter(object):
         self.processed = []
 
         # figure out the dimension of the problem
-        if not np.isscalar(signal[0]):
-            self.dimension = len(signal[0])
+        if dimension is None:
+            if len(np.shape(signal)) == 2:
+                self.dimension = np.shape[1]
+            else:
+                self.dimension = 1
         else:
-            self.dimension = 1
+            self.dimension = dimension
 
-    @timer
+    @ut.timer
     def plot_signals(self, signals, labels, line_styles = ['solid', 'dotted', 'dashed'],  max_pts = 100, fig_size = (7,6), time_unit = 'second', coords_to_plot = []):
         """
         Description:
@@ -146,35 +150,114 @@ class ParticleFilter(Filter):
         weights: weights computed by the particle filter
         current_time: integer-valued time starting at 0 denoting index of current hidden state
     """
-    def __init__(self, model, particle_count, importance_pdf = None):
+    def __init__(self, model, particle_count, importance_pdf = None, start_time = 0.0, time_step = 1.0):
         """
         Args:
             model: a ModelPF object containing the dynamic and measurement models
             particle_count: number of particles to be used
+            importance_pdf: importance pdf for the particle filter, it's a function of form p(x, condition) (argument names can be anything)
+            start_time: time at first obeservation, default = 0.0
+            time_step: time step between consecutive observations, default = 1.0
         """
         self.model = model
         # draw self.particle_count samples from the prior distribution and reshape for hstacking later
         self.particles = np.reshape(model.hidden_state.sims[0].generate(particle_count), (particle_count, 1))
-        self.weights = np.array([1.0/particle_count]*particle_count)
         self.particle_count = particle_count
+        self.weights = np.ones(particle_count)/particle_count
         self.current_time = 0
         # if importance density is not provided we use the bootstrap filter
         if importance_pdf is None:
             importance_pdf = self.model.hidden_state.conditional_pdf
         self.importance_pdf = importance_pdf
+        super().__init__(dimension = self.model.hidden_state.sims[0].dimension, start_time = start_time, time_step = time_step)
 
-    def update(self, observation):
+    def compute_weights(self, observation):
         """
         Description:
             Updates weights according to the last observation
+
+        Args:
+            observation: an observation of dimension = self.dimension
+
+        Returns:
+            self.weights
         """
+        # tick the internal timer
         self.current_time += 1
-        new_dimension = np.reshape(self.model.hidden_state.sim[self.current_time].generate(self.particle_count), (self.particle_count, 1))
+        if self.current_time >= self.model.hidden_state.size:
+            return self.weights
+
+        # create a new dimension to add to the particles
+        new_dimension = np.reshape(self.model.hidden_state.sims[self.current_time].generate(self.particle_count), (self.particle_count, 1))
         self.particles = np.hstack((self.particles, new_dimension))
+
+        # compute new weights
         for i, w in enumerate(self.weights):
             prob1 = self.model.hidden_state.conditional_pdf(self.particles[i][-1], self.particles[i][-2])
             prob2 = self.model.observation.conditional_pdf(observation, self.particles[i][-1])
             prob3 = self.importance_pdf(self.particles[i][-1], self.particles[i][-2])
             self.weights[i] = w*prob1*prob2/prob3
+
         # normalize weights
         self.weights /= self.weights.sum()
+
+        return self.weights
+
+    def resample(self, threshold_factor = 0.1):
+        """
+        Description:
+            Performs resampling
+
+        Args:
+            threshold_factor: fraction of self.particle_count which the effective particle count has to surpass in order to stop resampling
+
+        Returns:
+            bool, True if resampling occurred, False otherwise
+        """
+        # resample if effective particle count criterion is met
+        if 1.0/(self.weights**2).sum() < threshold_factor*self.particle_count:
+            indices = np.random.choice(self.particle_count, self.particle_count, p = self.weights)
+            self.particles = np.take(a = self.particles, indices = indices, axis = 0)
+            self.weights = np.ones(self.particle_count)/self.particle_count
+
+            # create weight map for faster computation
+            index_map = dict(cl.Counter(indices))
+            self.weight_map = np.zeros((len(index_map), 2))
+            for i, (key, value) in enumerate(index_map.items()):
+                self.weight_map[i] = [key, value*self.weights[0]]
+
+            return True # resampling occurred
+        return False # resampling didn't occur
+
+    def update(self, observations, threshold_factor = 0.5):
+        """
+        Description:
+            Updates using all the obeservations using self.compute_weights and self.resample
+
+        Args:
+            observations: list/np.array of observations to pass to self.compute_weights
+            threshold_factor: fraction of self.particle_count which the effective particle count has to surpass in order to stop resampling
+        Returns:
+            self.weights
+        """
+        for observation in observations:
+            self.compute_weights(observation = observation)
+            self.resample(threshold_factor = threshold_factor)
+        return self.weights
+
+    def filtering_pdf(self, x, time):
+        """
+        Description:
+            Computes the filtering distribution pi(x_k|y_(1:k))
+
+        Args:
+            x: input
+            time: time at which to compute the filtering distribution, same as k in the description
+
+        Returns:
+            value of the pdf at x
+        """
+        result = 0.0
+        for i in range(self.particle_count):
+            result += self.weights[i]*ut.delta(x, self.particles[i][time])
+        return result

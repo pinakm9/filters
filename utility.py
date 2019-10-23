@@ -15,7 +15,19 @@ def timer(func):
 		return val
 	return new_func
 
+def delta(x, x_0):
+	"""
+	Description:
+		Dirac delta function
 
+	Args:
+		x: input
+		x_0: point where the mass is located
+
+	Returns:
+	 	eiter 0.0 or 1.0
+	"""
+	return 0.0 if x != x_0 else 1.0
 
 class Picker(object):
     """
@@ -29,8 +41,10 @@ class Picker(object):
 
     def equidistant(self, objs_to_pick, start_pt = 0):
         """
-        Picks objs_to_pick equidistant objects starting at the location start_pt
-        Returns the picked objects
+		Description:
+        	Picks objs_to_pick equidistant objects starting at the location start_pt
+        Returns:
+			the picked objects
         """
         increment = int((len(self.array) - start_pt)/objs_to_pick)
         if increment < 1:

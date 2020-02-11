@@ -27,7 +27,7 @@ def delta(x, x_0):
 	Returns:
 	 	eiter 0.0 or 1.0
 	"""
-	return 0.0 if x != x_0 else 1.0
+	return 1.0 if np.array_equal(x, x_0) else 0.0
 
 class Picker(object):
     """

@@ -1,22 +1,53 @@
+# particle filter test
 import filter as fl
 import numpy as np
-from scipy.stats import norm
 import simulate as sm
-"""
-# signal-plotting test
-size = 100
-signal =  np.array([(t, t**2, t**3, t**4) for t in range(size)])
-noise = np.random.normal(0.0, 1, size = (size, len(signal[0])))
-observation = signal + noise
-flt = fl.Filter(signal)
-flt.plot_signals(signals = [signal, observation], labels = ['actual', 'observed'], coords_to_plot = [2, 1])
-"""
+import plot
 
-# particle filter test
+d = 100
+mu = [1.0]*d
+sigma = np.diag([1.0]*d)
+np.random.seed(seed = 1)
+# create a dynamic model
+prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mu, sigma))
+f = lambda x: x
+G = np.identity(d)
+dynamic_model = sm.GaussianErrorModel(size = 15, prior = prior, f = f, G = G, mu = mu, sigma = sigma)
 
+# create a measurement_model
+f = lambda x: x
+G = np.identity(d)
+measurement_model = sm.GaussianObservationModel(conditions = dynamic_model.sims, f = f, G = G, mu = mu, sigma = sigma)
+
+# create a ModelPF object to feed the filter
+model = fl.ModelPF(dynamic_model = dynamic_model, measurement_model = measurement_model)
+"""
+print(model.hidden_state.generate_paths(2))
+print(model.observation.generate_paths(2))
+"""
+# construct a ParticleFilter object
+pf = fl.ParticleFilter(model, 100)
+hidden = model.hidden_state.generate_path()
+signal = model.observation.generate_path()
+weights = pf.update(signal, threshold_factor = 1.0, method = 'mode')
+"""
+print('hidden', pf.hidden_trajectory)
+print('observation', signal)
+"""
+plot.SignalPlotter(signals = [signal, pf.hidden_trajectory, hidden]).plot_signals( labels = ['observation', 'hidden', 'original'], coords_to_plot = [1,9], show = True)
+
+
+
+
+
+
+
+"""
 # step - 1 : construct a ModelPF object as the filter's input
-# construct the prior
-prior = sm.Simulation(target_rv = None, algorithm = lambda *args: np.random.normal(0.0, 0.5))
+prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal([0]*10, np.diag([1,2,3,2,1,1,1,1,1,1])))
+f = lambda x: 2*x
+G = np.random.normal(size = (10,10))
+mc = sm.GaussianErrorModel(size = 20, prior = prior, f = f, G = G, mu = [1]*10, sigma = np.diag([1,7,8,7,1,1,1,1,1,1]))
 # construct the dynamic algorithm
 def dynamic_algorithm(past):
     return past.current_value + np.random.normal(0.0, 0.7)
@@ -35,11 +66,12 @@ model = fl.ModelPF(30,  prior, dynamic_algorithm, measurement_algorithm, dynamic
 #print(model.observation.generate_paths(2))
 
 # step - 2: construct a particle filter object
-pf = fl.ParticleFilter(model, 100)
+pf = fl.ParticleFilter(model, 50)
 hidden = model.hidden_state.generate_path()
 signal = model.observation.generate_path()
 weights = pf.update(signal)
 pf.compute_hidden_state(method = 'mode')
 print('hidden', pf.hidden_state)
 print('observation', signal)
-pf.plot_signals(signals = [signal, pf.hidden_state, hidden], labels = ['observation', 'hidden', 'original'])
+pf.plot_signals(signals = [signal, pf.hidden_state, hidden], labels = ['observation', 'hidden', 'original'], coords_to_plot = [5])
+"""

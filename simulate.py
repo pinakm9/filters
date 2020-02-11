@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.integrate as integrate
-from scipy.stats import gamma
+import scipy.stats
 from statsmodels.distributions.empirical_distribution import ECDF
 import utility as ut
 
@@ -57,8 +57,8 @@ class RVContinuous(object):
         # set support and pdf/cdf for known distributions
         if name == 'gamma':
             support = (0.0, np.inf)
-            cdf = lambda x, shape, scale: gamma.cdf(x, shape, scale = scale)
-            pdf = lambda x, shape, scale: gamma.pdf(x, shape, scale = scale)
+            cdf = lambda x, shape, scale: scipy.stats.gamma.cdf(x, shape, scale = scale)
+            pdf = lambda x, shape, scale: scipy.stats.gamma.pdf(x, shape, scale = scale)
 
         # assign basic attributes
         self.name = name # name of the random variable
@@ -310,7 +310,7 @@ class Simulation(object):
             self.samples
         """
         self.size = sample_size # number of samples to be collected
-        self.samples = [self.algorithm() for i in range(self.size)] # container for the collected samples
+        self.samples = np.array([self.algorithm() for i in range(self.size)]) # container for the collected samples
         self.mean = np.mean(self.samples)
         self.var = np.var(self.samples, ddof = 1) # unbiased estimator
         return self.samples
@@ -423,7 +423,8 @@ class StochasticProcess(object):
             # assign basic attributes
             self.current_path = None # last generated path of the stochastic process
             self.sims = sims # Simulation objects for the random variables that make up the stochastic process
-            self.size = len(sims) # number of random variables that make up the stochastic process
+            self.size = len(sims) # number of the random variables that make up the stochastic process
+            self.dimension = self.sims[0].dimension # dimension of the random variables that make up the stochastic process
 
         def generate_path(self):
             """
@@ -512,3 +513,71 @@ class SPConditional(StochasticProcess):
         for condition in conditions:
             sims.append(Simulation(algorithm = algorithm, condition = condition, **self.algorithm_args))
         super().__init__(sims)
+
+class GaussianErrorModel(MarkovChain):
+    """
+    Description:
+        This is a class for defining a MarkovChain of the form x_k = f(x_(k-1)) + Gz
+        f is a function R^d -> R^d and G is a dxd matrix and z ~ N(mu, sigma)
+        Parent class: MarkovChain
+    """
+    def __init__(self, size, prior, f, G, mu, sigma):
+        """
+        Args:
+            size: number of random variables in the chain
+            prior: Simulation object for the first random variable in the chain
+            f: a function from R^d -> R^d as described in the model
+            G: a numpy square matrix as described in the model
+            mu: mean of z, a d-dimensional normal random variable as described in the model
+            sigma: covariance matrix of z, a d-dimensional normal random variable as described in the model
+        """
+        # set parameters for the model
+        self.f = f
+        self.G = G
+        self.mu = mu
+        self.sigma = sigma
+
+        # figure out simulation algorithm
+        def algorithm(past):
+            return self.f(past.current_value) + np.dot(self.G, np.random.multivariate_normal(mu, sigma))
+
+        # compute the conditional_pdf
+        G_mu = np.dot(G, mu)
+        G_sigma_Gt = np.dot(np.dot(G, sigma), G.T)
+        conditional_pdf = lambda x, condition: scipy.stats.multivariate_normal.pdf(x, mean = f(condition) + G_mu, cov = G_sigma_Gt)
+
+        super().__init__(size = size, prior = prior, algorithm = algorithm, conditional_pdf = conditional_pdf)
+
+class GaussianObservationModel(SPConditional):
+    """
+    Description:
+        This is a class for defining an SPConditional object of the form y_k = f(x_k) + Gz
+        f is a function R^d -> R^d and G is a dxd matrix and z ~ N(mu, sigma)
+        Parent class: SPConditional
+    """
+    def __init__(self, conditions, f, G, mu, sigma):
+        """
+        Args:
+            size: number of random variables in the chain
+            prior: Simulation object for the first random variable in the chain
+            f: a function from R^d -> R^d as described in the model
+            G: a numpy square matrix as described in the model
+            mu: mean of z, a d-dimensional normal random variable as described in the model
+            sigma: covariance matrix of z, a d-dimensional normal random variable as described in the model
+        """
+        # set parameters for the model
+        self.f = f
+        self.G = G
+        self.mu = mu
+        self.sigma = sigma
+
+        # figure out simulation algorithm
+        def algorithm(condition):
+            return self.f(condition.current_value) + np.dot(self.G, np.random.multivariate_normal(mu, sigma))
+
+        # compute the conditional_pdf
+        G_mu = np.dot(G, mu)
+        G_sigma_Gt = np.dot(np.dot(G, sigma), G.T)
+        conditional_pdf = lambda y, condition: scipy.stats.multivariate_normal.pdf(y, mean = f(condition) + G_mu, cov = G_sigma_Gt)
+
+        super().__init__(conditions = conditions, algorithm = algorithm, conditional_pdf = conditional_pdf)

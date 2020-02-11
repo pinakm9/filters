@@ -56,3 +56,10 @@ class Picker(object):
                 new_array[i] = self.array[j]
                 j += increment
         return np.array(new_array)
+
+def normalize_small(numbers, threshold = 50):
+	log_numbers = [np.log(number) for number in numbers]
+	max_log = np.max(log_numbers)
+	for i, number in enumerate(numbers):
+		if max_log - log_numbers[i] > threshold:
+			number[i] = 0.0

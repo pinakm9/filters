@@ -9,7 +9,6 @@ class ModelPF():
     """
     Description:
         A class for defining dynamic and measurement models for a particle filter.
-
     Attributes:
         hidden_state: a MarkovChain object simulating the hidden state
         observation: an SPConditional object simulating the observations
@@ -42,7 +41,6 @@ class ParticleFilter():
     Description:
          A class for defining particle filters
          Parent class: Filter
-
     Attributes (extra):
         model: a ModelPF object containing the dynamic and measurement models
         particles: particles used to estimate the filtering distribution
@@ -61,7 +59,7 @@ class ParticleFilter():
         """
         self.model = model
         # draw self.particle_count samples from the prior distribution and reshape for hstacking later
-        self.particles = model.hidden_state.sims[0].generate(particle_count)
+        self.particles = []
         self.particle_count = particle_count
         self.weights = np.ones(particle_count)/particle_count
         self.current_time = 0
@@ -80,17 +78,11 @@ class ParticleFilter():
         """
         Description:
             Updates weights according to the last observation
-
         Args:
             observation: an observation of dimension = self.dimension
-
         Returns:
             self.weights
         """
-        # tick the internal timer
-        self.current_time += 1
-        if self.current_time >= self.model.hidden_state.size:
-            return self.weights
 
         # create a new dimension to add to the particles
         new_particles = self.model.hidden_state.sims[self.current_time].generate(self.particle_count)
@@ -101,23 +93,23 @@ class ParticleFilter():
             prob2 = self.model.observation.conditional_pdf(observation, new_particles[i])
             #prob3 = self.importance_pdf(new_particles[i], self.particles[i])
             self.weights[i] = w*prob2
-        print(self.weights.sum(), np.max(self.weights))
+        #print(self.weights.sum(), np.max(self.weights))
         # normalize weights
         self.weights /= self.weights.sum()
 
         self.particles = new_particles
         if self.save_trajectories:
             self.trajectories = np.append(self.trajectories, [self.particles], axis = 0)
+
+        self.current_time += 1
         return self.weights
 
     def resample(self, threshold_factor = 0.1):
         """
         Description:
             Performs resampling
-
         Args:
             threshold_factor: fraction of self.particle_count which the effective particle count has to surpass in order to stop resampling (0 implies no resampling)
-
         Returns:
             bool, True if resampling occurred, False otherwise
         """
@@ -140,11 +132,9 @@ class ParticleFilter():
         """
         Description:
             Computes the filtering distribution pi(x_k|y_(1:k))
-
         Args:
             x: input
             time: time at which to compute the filtering distribution, same as k in the description
-
         Returns:
             value of the pdf at x
         """
@@ -169,7 +159,6 @@ class ParticleFilter():
         """
         Description:
             Updates using all the obeservations using self.compute_weights and self.resample
-
         Args:
             observations: list/np.array of observations to pass to self.compute_weights
             threshold_factor: fraction of self.particle_count which the effective particle count has to surpass in order to stop resampling

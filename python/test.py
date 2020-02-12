@@ -43,7 +43,7 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     return np.max(pf.weights)
 
 max_w = []
-n, d, itr = 100, 100, 200
+n, d, itr = 100, 10, 200
 for i in range(itr):
     print('iteration = {}:'.format(i))
     max_w.append(collapse(n,d))

@@ -48,7 +48,7 @@ class ParticleFilter():
         weights: weights computed by the particle filter
         current_time: integer-valued time starting at 0 denoting index of current hidden state
     """
-    def __init__(self, model, particle_count, importance_pdf = None, start_time = 0.0, time_step = 1.0, save_trajectories = False):
+    def __init__(self, model, particle_count, importance_pdf = None, save_trajectories = False):
         """
         Args:
             model: a ModelPF object containing the dynamic and measurement models
@@ -167,14 +167,59 @@ class ParticleFilter():
         """
         for observation in observations:
             self.compute_weights(observation = observation)
-            self.resample(threshold_factor = threshold_factor)
-            self.compute_hidden_trajectory(method = method)
+            if threshold_factor > 0.0:
+                self.resample(threshold_factor = threshold_factor)
+            if method is not None:
+                self.compute_hidden_trajectory(method = method)
         return self.weights
 
-    def weight_graph(self):
-        """
-        Plots a histogram of weights
-        """
-        pass
 
-#class ImplicitParticleFilter(ParticleFilter):
+class QuadraticImplicitPF(ParticleFilter):
+    """
+    Description:
+        Defines an implicit particle filter that uses quadratic approximation of log of p(y|x)
+    Parent class:
+        ParticleFilter
+    """
+    def __init__(self, model, particle_count, hessian, save_trajectories = False):
+        super().__init__(model = model, particle_count = particle_count, save_trajectories = save_trajectories)
+        self.hessian = hessian # Hessian matrix for F = negative log of product of conditional pdfs
+        # figure out covariances to define F = negative log of product of conditional pdfs
+        self.dynamic_cov_inv = np.linalg.inv(self.model.hidden_state.error_cov)
+        self.measurement_cov_inv = np.linalg.inv(self.model.observation.error_cov)
+
+        # define F = negative log of product of conditional pdfs
+        def neg_log_conditional_pdf(x, k, y):
+            a = x - self.model.hidden_state.f(self.particles[k])
+            b = y - self.model.observation.f(x)
+            return 0.5*(np.dot(a.T, np.dot(self.dynamic_cov_inv, a)) + np.dot(b.T, np.dot(self.measurement_cov_inv, b)))
+
+    def compute_weights(self, observation):
+        """
+        Description:
+            Updates weights according to the last observation
+        Args:
+            observation: an observation of dimension = self.dimension
+        Returns:
+            self.weights
+        """
+
+        # create a new dimension to add to the particles
+        new_particles = self.particle[self.current_time].generate(self.particle_count)
+
+        # compute new weights
+        for i, w in enumerate(self.weights):
+            #prob1 = self.model.hidden_state.conditional_pdf(new_particles[i], self.particles[i])
+            prob2 = self.model.observation.conditional_pdf(observation, new_particles[i])
+            #prob3 = self.importance_pdf(new_particles[i], self.particles[i])
+            self.weights[i] = w*prob2
+        #print(self.weights.sum(), np.max(self.weights))
+        # normalize weights
+        self.weights /= self.weights.sum()
+
+        self.particles = new_particles
+        if self.save_trajectories:
+            self.trajectories = np.append(self.trajectories, [self.particles], axis = 0)
+
+        self.current_time += 1
+        return self.weights

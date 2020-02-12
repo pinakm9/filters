@@ -9,7 +9,6 @@ import utility as ut
 @ut.timer
 def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     # set parameters
-    d = 100
     mu = [1.0]*d
     sigma = np.diag([1.0]*d)
 
@@ -17,7 +16,7 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mu, sigma))
     f = lambda x: x
     G = np.identity(d)
-    dynamic_model = sm.GaussianErrorModel(size = 1, prior = prior, f = f, G = G, mu = mu, sigma = sigma)
+    dynamic_model = sm.GaussianErrorModel(size = 4, prior = prior, f = f, G = G, mu = mu, sigma = sigma)
 
     # create a measurement_model
     f = lambda x: x
@@ -39,13 +38,19 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     print('hidden', pf.hidden_trajectory)
     print('observation', signal)
     """
-    #plot.SignalPlotter(signals = [signal, pf.hidden_trajectory, hidden]).plot_signals( labels = ['observation', 'hidden', 'original'], coords_to_plot = [1,9], show = True)
+    #plot.SignalPlotter(signals = [signal, pf.hidden_trajectory, hidden]).plot_signals( labels = ['observation', 'hidden', 'original'],\
+    #                    coords_to_plot = [1,9], show = True)
     return np.max(pf.weights)
 
 max_w = []
-for i in range(100):
-    max_w.append(collapse(50,10))
-plt.hist(max_w)
+n, d, itr = 100, 100, 200
+for i in range(itr):
+    print('iteration = {}:'.format(i))
+    max_w.append(collapse(n,d))
+plt.title("(d, n) = ({}, {})".format(d, n))
+plt.xlabel("maximum weight")
+plt.hist(max_w, 12)
+plt.savefig("../images/max_weight_{}_{}_{}.png".format(d, n, itr))
 plt.show()
 """
 # step - 1 : construct a ModelPF object as the filter's input

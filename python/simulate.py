@@ -542,9 +542,9 @@ class GaussianErrorModel(MarkovChain):
             return self.f(past.current_value) + np.dot(self.G, np.random.multivariate_normal(mu, sigma))
 
         # compute the conditional_pdf
-        G_mu = np.dot(G, mu)
-        G_sigma_Gt = np.dot(np.dot(G, sigma), G.T)
-        conditional_pdf = lambda x, condition: scipy.stats.multivariate_normal.pdf(x, mean = f(condition) + G_mu, cov = G_sigma_Gt)
+        self.error_mean = np.dot(G, mu)
+        self.error_cov = np.dot(np.dot(G, sigma), G.T)
+        conditional_pdf = lambda x, condition: scipy.stats.multivariate_normal.pdf(x, mean = f(condition) + self.error_mean, cov = self.error_cov)
 
         super().__init__(size = size, prior = prior, algorithm = algorithm, conditional_pdf = conditional_pdf)
 
@@ -576,8 +576,8 @@ class GaussianObservationModel(SPConditional):
             return self.f(condition.current_value) + np.dot(self.G, np.random.multivariate_normal(mu, sigma))
 
         # compute the conditional_pdf
-        G_mu = np.dot(G, mu)
-        G_sigma_Gt = np.dot(np.dot(G, sigma), G.T)
-        conditional_pdf = lambda y, condition: scipy.stats.multivariate_normal.pdf(y, mean = f(condition) + G_mu, cov = G_sigma_Gt)
+        self.error_mean = np.dot(G, mu)
+        self.error_cov = np.dot(np.dot(G, sigma), G.T)
+        conditional_pdf = lambda y, condition: scipy.stats.multivariate_normal.pdf(y, mean = f(condition) + self.error_mean, cov = self.error_cov)
 
         super().__init__(conditions = conditions, algorithm = algorithm, conditional_pdf = conditional_pdf)

@@ -226,17 +226,101 @@ class QuadraticImplicitPF(ParticleFilter):
                 grad = lambda x: self.grad(x, observation, self.particles[k])
 
                 # minimize F_k
-                res = opt.minimize(F_k, self.particles[k], method = 'BFGS', jac = grad)
-                mu, phi_k= res.x, res.fun
-
+                #res = opt.minimize(F_k, self.particles[k], method = 'BFGS', jac = grad)
+                #mu, phi_k= res.x, res.fun
+                mu =  0.5*(self.particles[k]+observation)
+                phi_k = F_k(mu)
+                #print("diff = {}".format(res.x - 0.5*(self.particles[k]+observation)) )
                 # compute position of k-th particle
                 xi = np.random.multivariate_normal(self.std_mean, self.std_cov)
                 self.particles[k] = mu + np.dot(self.cholesky_factor_invT(phi_k, observation, self.particles[k]), xi)
 
                 # compute weight of k-th particle
                 a = self.particles[k] - mu
-                #F_0 = phi_k + 0.5*np.dot(a.T, np.dot(hessian(mu), a))
-                self.weights[k] *= np.exp(0.5*np.dot(xi.T, xi)-F_k(self.particles[k]))
+                F_0 = phi_k + 0.5*np.dot(a.T, np.dot(hessian(mu), a))
+                self.weights[k] *= np.exp(-phi_k + F_0-F_k(self.particles[k]))
+        #print('w={}'.format(self.weights[0]))
+        # normalize weights
+        self.weights /= self.weights.sum()
+
+        #print(self.weights)
+        #print(self.particles)
+        if self.save_trajectories:
+            self.trajectories = np.append(self.trajectories, [self.particles], axis = 0)
+
+        self.current_time += 1
+        print('w_max = {}'.format(np.max(self.weights)))
+        return self.weights
+
+
+class RandomQuadraticIPF(ParticleFilter):
+    """
+    Description:
+        Defines an implicit particle filter that uses quadratic approximation of log of p(y|x)
+    Parent class:
+        ParticleFilter
+    """
+    def __init__(self, model, particle_count, save_trajectories = False):
+        super().__init__(model = model, particle_count = particle_count, save_trajectories = save_trajectories)
+        self.std_mean = [0]*self.model.hidden_state.dimension
+        self.std_cov = np.identity(self.model.hidden_state.dimension)
+        # figure out covariances to define F_k = negative log of product of conditional pdfs
+        self.dynamic_cov_inv = np.linalg.inv(self.model.hidden_state.error_cov)
+        self.measurement_cov_inv = np.linalg.inv(self.model.observation.error_cov)
+
+        # define F = negative log of product of conditional pdfs
+        def F_k(x, y, x_0):
+            a = x - self.model.hidden_state.f(x_0)
+            b = y - self.model.observation.f(x)
+            return 0.5*(np.dot(a.T, np.dot(self.dynamic_cov_inv, a)) + np.dot(b.T, np.dot(self.measurement_cov_inv, b)))
+
+        self.F = F_k
+
+    def compute_weights(self, observation):
+        """
+        Description:
+            Updates weights according to the last observation
+        Args:
+            observation: an observation of dimension = self.dimension
+        Returns:
+            self.weights
+        """
+        if self.current_time < 1:
+            # create a new dimension to add to the particles
+            self.particles = self.model.hidden_state.sims[self.current_time].generate(self.particle_count)
+            # compute new weights
+            for i in range(self.particle_count):
+                #prob1 = self.model.hidden_state.conditional_pdf(new_particles[i], self.particles[i])
+                prob2 = self.model.observation.conditional_pdf(observation, self.particles[i])
+                #prob3 = self.importance_pdf(new_particles[i], self.particles[i])
+                self.weights[i] *= prob2
+        else:
+
+            for k in range(self.particle_count):
+                # create F_k, its grad and hessian for minimization
+                F_k = lambda x: self.F(x, observation, self.particles[k])
+
+                # figure out phi_k and mu_k
+                mu_k =  0.5*(self.particles[k] + observation)
+                phi_k = F_k(mu_k)
+
+                # create the non-linear equation
+                xi = np.random.multivariate_normal(self.std_mean, self.std_cov)
+                rho = np.dot(xi, xi)
+                eta = xi/np.sqrt(rho)
+                f = lambda lam: F_k(mu_k + lam*eta) - phi_k - 0.5*rho
+
+                # create the derivatives of F_k, f
+                grad_F_k = lambda x: 2*(x - mu_k)
+                fprime = lambda lam: np.dot(grad_F_k(mu_k + lam*eta), eta)
+
+                # solve for current particle position and compute Jacobian
+                lam = opt.fsolve(f, 0.01)[0]
+                self.particles[k] = mu_k + lam*eta
+                J = lam**(self.model.hidden_state.dimension-1)*rho**(1-0.5*self.model.hidden_state.dimension)/fprime(lam)
+
+                # compute weight of k-th particle
+                self.weights[k] *= np.exp(-phi_k)*abs(J)
         #print('w={}'.format(self.weights[0]))
         # normalize weights
         self.weights /= self.weights.sum()

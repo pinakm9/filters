@@ -6,6 +6,8 @@ import plot
 import matplotlib.pyplot as plt
 import utility as ut
 #np.random.seed(seed = 1)
+rho = 5
+
 @ut.timer
 def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     # set parameters
@@ -19,7 +21,7 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     dynamic_model = sm.GaussianErrorModel(size = 4, prior = prior, f = f, G = G, mu = mu, sigma = sigma)
 
     # create a measurement_model
-    rho = 5
+
     f = lambda x: x
     G = rho*np.identity(d)
     measurement_model = sm.GaussianObservationModel(conditions = dynamic_model.sims, f = f, G = G, mu = mu, sigma = sigma)
@@ -43,16 +45,18 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     #                    coords_to_plot = [1,9], show = True)
     return np.max(pf.weights)
 
-max_w = []
-n, d, itr = 100, 10, 100
-for i in range(itr):
-    print('iteration = {}:'.format(i))
-    max_w.append(collapse(n,d))
-plt.title("(d, n) = ({}, {})".format(d, n))
-plt.xlabel("maximum weight")
-plt.hist(max_w, 12)
-plt.savefig("../images/max_weight_{}_{}_{}.png".format(d, n, itr))
-plt.show()
+itr = 100
+for n in [100, 200, 300]:
+    for d in [10, 50, 100]:
+        max_w = []
+        for i in range(itr):
+            print('iteration = {}:'.format(i))
+            max_w.append(collapse(n,d))
+        plt.title("(d, n) = ({}, {})".format(d, n))
+        plt.xlabel("maximum weight")
+        plt.hist(max_w, 15)
+        plt.savefig("../images/max_weight_{}_{}_{}_{}.png".format(d, n, itr, rho))
+#plt.show()
 """
 # step - 1 : construct a ModelPF object as the filter's input
 prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal([0]*10, np.diag([1,2,3,2,1,1,1,1,1,1])))

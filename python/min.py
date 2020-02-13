@@ -22,7 +22,23 @@ def F_der(x):
     b = np.dot(D, x) - y
     return np.dot(a.T, A) + np.dot(b.T, np.dot(B,D))
 
-print(F(np.random.uniform(size=(d,))))
+res = opt.minimize(F, x0, method='BFGS', jac=F_der)#, options={'gtol': 1e-6, 'disp': True})
+#print(res)
 
-res = opt.minimize(F, x0, method='BFGS', jac=F_der, options={'gtol': 1e-6, 'disp': True})
-print(res, F(res.x))
+xi = y
+rho = np.dot(xi, xi)
+eta = xi/np.sqrt(rho)
+
+def F1(z):
+    return F(res.x + z*eta) - res.fun - 0.1
+
+def J(z):
+    return [z**(d-1)*rho**(1-0.5*d)/np.dot(eta, F_der(res.x + z*eta))]
+
+print("......", J(9))
+
+@ut.timer
+def g():
+    return opt.fsolve(F1, 0.001, fprime = J)
+res1 = g()
+print(res1, F1(res1))

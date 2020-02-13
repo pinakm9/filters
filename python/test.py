@@ -6,7 +6,7 @@ import plot
 import matplotlib.pyplot as plt
 import utility as ut
 #np.random.seed(seed = 1)
-rho = 5
+rho = 1.1
 
 @ut.timer
 def collapse(n, d): # n -> number of particles, d -> dimension of the problem
@@ -18,7 +18,7 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mu, sigma))
     f = lambda x: x
     G = np.identity(d)
-    dynamic_model = sm.GaussianErrorModel(size = 4, prior = prior, f = f, G = G, mu = mu, sigma = sigma)
+    dynamic_model = sm.GaussianErrorModel(size = 2, prior = prior, f = f, G = G, mu = mu, sigma = sigma)
 
     # create a measurement_model
 
@@ -33,16 +33,17 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     print(model.observation.generate_paths(2))
     """
     # construct a ParticleFilter object
-    pf = fl.ParticleFilter(model, n)
     hidden = model.hidden_state.generate_path()
     signal = model.observation.generate_path()
+    pf = fl.ParticleFilter(model, n)
     weights = pf.update(signal, threshold_factor = 0.0, method = 'mean')
     """
-    print('hidden', pf.hidden_trajectory)
+    print('hidden', pf.computed_trajectory)
     print('observation', signal)
     """
-    #plot.SignalPlotter(signals = [signal, pf.hidden_trajectory, hidden]).plot_signals( labels = ['observation', 'hidden', 'original'],\
-    #                    coords_to_plot = [1,9], show = True)
+    err = pf.compute_error()
+    print("Error mean mean= {}, Error mean standard deviation = {}".format(np.mean(err[1]), np.mean(err[2])))
+    #plot.SignalPlotter(signals = [signal, pf.computed_trajectory, hidden]).plot_signals( labels = ['observation', 'hidden', 'original'], coords_to_plot = [1,9], show = True)
     return np.max(pf.weights)
 
 itr = 100
@@ -54,7 +55,7 @@ for n in [100, 200, 300]:
             max_w.append(collapse(n,d))
         plt.title("(d, n) = ({}, {})".format(d, n))
         plt.xlabel("maximum weight")
-        plt.hist(max_w, 15)
+        plt.hist(max_w, bins = 15, color = 'darkgrey')
         plt.savefig("../images/max_weight_{}_{}_{}_{}.png".format(d, n, itr, rho))
 #plt.show()
 """

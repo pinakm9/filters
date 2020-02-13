@@ -6,7 +6,7 @@ import plot
 import matplotlib.pyplot as plt
 import utility as ut
 #np.random.seed(seed = 1)
-rho = 2
+rho = 3.5
 
 @ut.timer
 def collapse(n, d): # n -> number of particles, d -> dimension of the problem
@@ -34,10 +34,13 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     """
     # figure out gradient to pass to QuadraticImplicitPF
     def grad(x, y, x_0):
-        return (x - x_0) + (x - y)
+        return (x - x_0) + (x - y)/(rho**2)
 
-    L = np.sqrt(1.0/(1 + rho**2))*np.identity(d)
-    H = (1 + rho**2)*np.identity(d)
+    def minimum(y, x_0):
+        return (x_0 + y/rho**2)/(1.0 + 1.0/rho**2)
+
+    L = np.sqrt(1.0/(1.0 + 1.0/rho**2))*np.identity(d)
+    H = (1.0 + 1.0/rho**2)*np.identity(d)
 
     def hessian(x, y, x_0):
         return H
@@ -45,18 +48,17 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     def cholesky_factor_invT(x, y, x_0):
         return L
     # construct a ParticleFilter object
-    pf = fl.RandomQuadraticIPF(model, n)
     hidden = model.hidden_state.generate_path()
     signal = model.observation.generate_path()
+    pf = fl.RandomQuadraticIPF(model, n, grad, minimum)#fl.QuadraticImplicitPF(model, n, grad, hessian, cholesky_factor_invT)#
     pf.update(signal, threshold_factor = 0.0, method = 'mean')
-
-    #"""
-    #plot.SignalPlotter(signals = [signal, pf.hidden_trajectory, hidden]).plot_signals( labels = ['observation', 'hidden', 'original'],\
-    #                    coords_to_plot = [9], show = True)
+    err = pf.compute_error()
+    print("Error mean  mean= {}, Error mean standard deviation = {}".format(np.mean(err[1]), np.mean(err[2])))
+    #plot.SignalPlotter(signals = [signal, pf.computed_trajectory, hidden]).plot_signals( labels = ['observation', 'hidden', 'original'], coords_to_plot = [9], show = True)
     return np.max(pf.weights)
 
 itr = 100
-for n in [300]:
+for n in [10, 30, 50]:
     for d in [10, 50, 100]:
         max_w = []
         for i in range(itr):
@@ -64,6 +66,6 @@ for n in [300]:
             max_w.append(collapse(n,d))
         plt.title("(d, n) = ({}, {})".format(d, n))
         plt.xlabel("maximum weight")
-        plt.hist(max_w, 15, color = "darkblue")
+        plt.hist(max_w, bins = 15, color = "blue")
         plt.savefig("../images/rho6/ipf_max_weight_{}_{}_{}_{}.png".format(d, n, itr, rho))
 #plt.show()

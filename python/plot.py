@@ -67,7 +67,7 @@ class SignalPlotter(object):
         # plot self.signals against time
         if self.dimension == 1:
             ax = fig.add_subplot(111)
-            t = np.linspace(self.start_time, self.start_time + (len(self.signals[0])-1)*self.time_step, num = len(self.signals[0]))
+            t = np.linspace(self.start_time, self.start_time + (len(self.signals[0])-1)*self.time_step, num = min(max_pts, len(self.signals[0])))
             for i, signal in enumerate(self.signals):
                 signal = ut.Picker(signal).equidistant(objs_to_pick = max_pts)
                 ax.plot(t, signal, label = labels[i], linestyle = line_styles[i])
@@ -93,7 +93,7 @@ class SignalPlotter(object):
         # plot the required coordinates separately against time
         elif self.dimension > 3 or coords_to_plot != []:
             ax, num_rows = [], len(coords_to_plot)
-            t = np.linspace(self.start_time, self.start_time + (len(self.signals[0])-1)*self.time_step, num = len(self.signals[0]))
+            t = np.linspace(self.start_time, self.start_time + (len(self.signals[0])-1)*self.time_step, min(max_pts, len(self.signals[0])))
 
             for i in range(num_rows):
                 ax.append(fig.add_subplot(num_rows, 1, i+1))

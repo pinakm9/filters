@@ -19,9 +19,10 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     dynamic_model = sm.GaussianErrorModel(size = 4, prior = prior, f = f, G = G, mu = mu, sigma = sigma)
 
     # create a measurement_model
+    rho = 5
     f = lambda x: x
-    G = np.identity(d)
-    measurement_model = sm.GaussianObservationModel(conditions = dynamic_model.sims, f = f, G = G, mu = mu, sigma = 10*sigma)
+    G = rho*np.identity(d)
+    measurement_model = sm.GaussianObservationModel(conditions = dynamic_model.sims, f = f, G = G, mu = mu, sigma = sigma)
 
     # create a ModelPF object to feed the filter
     model = fl.ModelPF(dynamic_model = dynamic_model, measurement_model = measurement_model)
@@ -33,7 +34,7 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     pf = fl.ParticleFilter(model, n)
     hidden = model.hidden_state.generate_path()
     signal = model.observation.generate_path()
-    weights = pf.update(signal, threshold_factor = 0.0, method = 'mode')
+    weights = pf.update(signal, threshold_factor = 0.0, method = 'mean')
     """
     print('hidden', pf.hidden_trajectory)
     print('observation', signal)
@@ -43,7 +44,7 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     return np.max(pf.weights)
 
 max_w = []
-n, d, itr = 100, 10, 200
+n, d, itr = 100, 10, 100
 for i in range(itr):
     print('iteration = {}:'.format(i))
     max_w.append(collapse(n,d))

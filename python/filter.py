@@ -227,7 +227,7 @@ class QuadraticImplicitPF(ParticleFilter):
 
                 # minimize F_k
                 res = opt.minimize(F_k, self.particles[k], method = 'BFGS', jac = grad)
-                mu, phi_k = res.x, res.fun
+                mu, phi_k= res.x, res.fun
 
                 # compute position of k-th particle
                 xi = np.random.multivariate_normal(self.std_mean, self.std_cov)
@@ -235,8 +235,8 @@ class QuadraticImplicitPF(ParticleFilter):
 
                 # compute weight of k-th particle
                 a = self.particles[k] - mu
-                F_0 = phi_k + 0.5*np.dot(a.T, np.dot(hessian(mu), a))
-                self.weights[k] *= np.exp(F_0-F_k(self.particles[k]))
+                #F_0 = phi_k + 0.5*np.dot(a.T, np.dot(hessian(mu), a))
+                self.weights[k] *= np.exp(0.5*np.dot(xi.T, xi)-F_k(self.particles[k]))
         #print('w={}'.format(self.weights[0]))
         # normalize weights
         self.weights /= self.weights.sum()

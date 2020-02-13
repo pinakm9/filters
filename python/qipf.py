@@ -16,12 +16,13 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mu, sigma))
     f = lambda x: x
     G = np.identity(d)
-    dynamic_model = sm.GaussianErrorModel(size = 3, prior = prior, f = f, G = G, mu = mu, sigma = sigma)
+    dynamic_model = sm.GaussianErrorModel(size = 4, prior = prior, f = f, G = G, mu = mu, sigma = sigma)
 
     # create a measurement_model
+    rho = 5
     f = lambda x: x
-    G = np.identity(d)
-    measurement_model = sm.GaussianObservationModel(conditions = dynamic_model.sims, f = f, G = G, mu = mu, sigma = 10*sigma)
+    G = rho*np.identity(d)
+    measurement_model = sm.GaussianObservationModel(conditions = dynamic_model.sims, f = f, G = G, mu = mu, sigma = sigma)
 
     # create a ModelPF object to feed the filter
     model = fl.ModelPF(dynamic_model = dynamic_model, measurement_model = measurement_model)
@@ -33,8 +34,9 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     def grad(x, y, x_0):
         return (x - x_0).T + (x - y).T
 
-    L = np.sqrt(0.5)*np.identity(d)
-    H = 2*np.identity(d)
+    L = np.sqrt(1.0/(1 + rho**2))*np.identity(d)
+    H = (1 + rho**2)*np.identity(d)
+
     def hessian(x, y, x_0):
         return H
 
@@ -50,8 +52,9 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     #plot.SignalPlotter(signals = [signal, pf.hidden_trajectory, hidden]).plot_signals( labels = ['observation', 'hidden', 'original'],\
     #                    coords_to_plot = [9], show = True)
     return np.max(pf.weights)
+
 max_w = []
-n, d, itr = 100, 10, 100
+n, d, itr = 100, 100, 100
 for i in range(itr):
     print('iteration = {}:'.format(i))
     max_w.append(collapse(n,d))

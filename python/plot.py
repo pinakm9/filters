@@ -40,7 +40,7 @@ class SignalPlotter(object):
         else:
             self.dimension = dimension
 
-    def plot_signals(self, labels, line_styles = ['solid', 'dotted', 'dashed'],  max_pts = 100, fig_size = (7,6), time_unit = 'second', coords_to_plot = [],\
+    def plot_signals(self, labels = [], line_styles = ['solid', 'dotted', 'dashed'],  max_pts = 100, fig_size = (7,6), time_unit = 'second', coords_to_plot = [],\
                     show = False, save = False, file_path = None):
         """
         Description:
@@ -60,12 +60,14 @@ class SignalPlotter(object):
         # prepare a figure
         fig = plt.figure(figsize = fig_size)
 
-        # fix line_styles if its length is not adequate
+        # fix line_styles and labels if its length is not adequate
         if len(self.signals) > len(line_styles):
             line_styles += ['solid']*(len(self.signals) - len(line_styles))
+        if len(self.signals) > len(labels):
+            labels += ['']*(len(self.signals) - len(labels))
 
         # plot self.signals against time
-        if self.dimension == 1:
+        if self.dimension == 1 and coords_to_plot == []:
             ax = fig.add_subplot(111)
             t = np.linspace(self.start_time, self.start_time + (len(self.signals[0])-1)*self.time_step, num = min(max_pts, len(self.signals[0])))
             for i, signal in enumerate(self.signals):

@@ -54,11 +54,12 @@ print('dim = {}'.format(mc.dimension))
 """
 Create a GaussianErrorModel
 """
-prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal([0]*10, np.diag([1,2,3,2,1,1,1,1,1,1])))
-f = lambda x: 2*x
-G = np.random.normal(size = (10,10))
-mc = sm.GaussianErrorModel(size = 20, prior = prior, f = f, G = G, mu = [1]*10, sigma = np.diag([1,7,8,7,1,1,1,1,1,1]))
-paths = mc.generate_paths(2)
+
+prior = sm.Simulation(algorithm = lambda *args: np.random.normal([0], np.diag([1])))
+f = lambda x: x
+G = np.identity(1)
+mc = sm.GaussianErrorModel(size = 150, prior = prior, f = f, G = G, mu = [0]*1, sigma = np.diag([1]))
+paths = mc.generate_paths(5)
 pltr = plot.SignalPlotter(signals = paths)
 print(pltr.dimension)
-pltr.plot_signals(labels=['p1', 'p2'], coords_to_plot = [1, 5, 9])
+pltr.plot_signals(labels=['p1', 'p2'], coords_to_plot = [0], show = True)

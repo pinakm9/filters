@@ -85,15 +85,14 @@ class ParticleFilter():
         Returns:
             self.weights
         """
-        if self.current_time < 1:
-            # create a new dimension to add to the particles
-            self.particles = self.model.hidden_state.sims[self.current_time].generate(self.particle_count)
-            # compute new weights
-            for i in range(self.particle_count):
-                #prob1 = self.model.hidden_state.conditional_pdf(new_particles[i], self.particles[i])
-                prob2 = self.model.observation.conditional_pdf(observation, self.particles[i])
-                #prob3 = self.importance_pdf(new_particles[i], self.particles[i])
-                self.weights[i] *= prob2
+        # create a new dimension to add to the particles
+        self.particles = self.model.hidden_state.sims[self.current_time].generate(self.particle_count)
+        # compute new weights
+        for i in range(self.particle_count):
+            #prob1 = self.model.hidden_state.conditional_pdf(new_particles[i], self.particles[i])
+            prob2 = self.model.observation.conditional_pdf(observation, self.particles[i])
+            #prob3 = self.importance_pdf(new_particles[i], self.particles[i])
+            self.weights[i] *= prob2
         #print(self.weights.sum(), np.max(self.weights))
         # normalize weights
         self.weights /= self.weights.sum()
@@ -230,7 +229,7 @@ class QuadraticImplicitPF(ParticleFilter):
                 #prob3 = self.importance_pdf(new_particles[i], self.particles[i])
                 self.weights[i] *= prob2
         else:
-
+            #xi = np.random.multivariate_normal(self.std_mean, self.std_cov)
             for k in range(self.particle_count):
                 # create F_k, its grad and hessian for minimization
                 F_k = lambda x: self.F(x, observation, self.particles[k])
@@ -262,7 +261,7 @@ class QuadraticImplicitPF(ParticleFilter):
             self.trajectories = np.append(self.trajectories, [self.particles], axis = 0)
 
         self.current_time += 1
-        print('w_max = {}'.format(np.max(self.weights)))
+        #print('w_max = {}'.format(np.max(self.weights)))
         return self.weights
 
 
@@ -312,7 +311,7 @@ class RandomQuadraticIPF(ParticleFilter):
                 #prob3 = self.importance_pdf(new_particles[i], self.particles[i])
                 self.weights[i] *= prob2
         else:
-
+            xi = np.random.multivariate_normal(self.std_mean, self.std_cov)
             for k in range(self.particle_count):
                 # create F_k, its grad and hessian for minimization
                 F_k = lambda x: self.F(x, observation, self.particles[k])
@@ -322,7 +321,7 @@ class RandomQuadraticIPF(ParticleFilter):
                 phi_k = F_k(mu_k)
 
                 # create the non-linear equation
-                xi = np.random.multivariate_normal(self.std_mean, self.std_cov)
+                #xi = np.random.multivariate_normal(self.std_mean, self.std_cov)
                 rho = np.dot(xi, xi)
                 eta = xi/np.sqrt(rho)
                 f = lambda lam: F_k(mu_k + lam*eta) - phi_k - 0.5*rho
@@ -333,6 +332,7 @@ class RandomQuadraticIPF(ParticleFilter):
 
                 # solve for current particle position and compute Jacobian
                 lam = opt.fsolve(f, 0.01, fprime = fprime)[0]
+                # print("{}----------{}".format(lam, f(lam)))
                 J = lam**(self.model.hidden_state.dimension-1)*rho**(1-0.5*self.model.hidden_state.dimension)/fprime(lam)
                 self.particles[k] = mu_k + lam*eta #** don't shift this line up
 

@@ -6,12 +6,12 @@ import plot
 import matplotlib.pyplot as plt
 import utility as ut
 #np.random.seed(seed = 1)
-rho = 1.1
+rho = 1
 
 @ut.timer
 def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     # set parameters
-    mu = [1.0]*d
+    mu = [0.0]*d
     sigma = np.diag([1.0]*d)
 
     # create a dynamic model
@@ -35,6 +35,7 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     # construct a ParticleFilter object
     hidden = model.hidden_state.generate_path()
     signal = model.observation.generate_path()
+    #plot.SignalPlotter(signals = [signal, hidden]).plot_signals( labels = ['observation', 'original'], coords_to_plot = [1,9], show = True)
     pf = fl.ParticleFilter(model, n)
     weights = pf.update(signal, threshold_factor = 0.0, method = 'mean')
     """
@@ -47,7 +48,7 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     return np.max(pf.weights)
 
 itr = 100
-for n in [100, 200, 300]:
+for n in [500]:
     for d in [10, 50, 100]:
         max_w = []
         for i in range(itr):
@@ -55,7 +56,7 @@ for n in [100, 200, 300]:
             max_w.append(collapse(n,d))
         plt.title("(d, n) = ({}, {})".format(d, n))
         plt.xlabel("maximum weight")
-        plt.hist(max_w, bins = 15, color = 'darkgrey')
+        plt.hist(max_w, bins = 15, color = 'blue')
         plt.savefig("../images/max_weight_{}_{}_{}_{}.png".format(d, n, itr, rho))
 #plt.show()
 """

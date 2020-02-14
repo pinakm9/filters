@@ -1,4 +1,4 @@
-# particle filter test
+# measures quality of a filter
 import filter as fl
 import numpy as np
 import simulate as sm
@@ -6,9 +6,9 @@ import plot
 import matplotlib.pyplot as plt
 import utility as ut
 #np.random.seed(seed = 1)
-rho = 1
+rho = .4
 
-@ut.timer
+#@ut.timer
 def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     # set parameters
     mu = [0.0]*d
@@ -18,7 +18,7 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mu, sigma))
     f = lambda x: x
     G = np.identity(d)
-    dynamic_model = sm.GaussianErrorModel(size = 3, prior = prior, f = f, G = G, mu = mu, sigma = sigma)
+    dynamic_model = sm.GaussianErrorModel(size = 100, prior = prior, f = f, G = G, mu = mu, sigma = sigma)
 
     # create a measurement_model
 
@@ -50,22 +50,25 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     # construct a ParticleFilter object
     hidden = model.hidden_state.generate_path()
     signal = model.observation.generate_path()
-    pf = fl.QuadraticImplicitPF(model, n, grad, hessian, cholesky_factor_invT)#fl.RandomQuadraticIPF(model, n, grad, minimum)#
+    pf = fl.QuadraticImplicitPF(model, n, grad, hessian, cholesky_factor_invT)#fl.RandomQuadraticIPF(model, n, grad, minimum)###fl.ParticleFilter(model, n)
     pf.update(signal, threshold_factor = 0.0, method = 'mean')
-    err = pf.compute_error()
-    print("Error mean  mean= {}, Error mean standard deviation = {}".format(np.mean(err[1]), np.mean(err[2])))
-    #plot.SignalPlotter(signals = [signal, pf.computed_trajectory, hidden]).plot_signals( labels = ['observation', 'hidden', 'original'], coords_to_plot = [9], show = True)
-    return np.max(pf.weights)
+    err = pf.compute_error()[0][0]
+    err = np.sqrt(np.dot(err, err))
+    #print("Error mean  mean= {}, Error mean standard deviation = {}".format(err, evar))
+    plot.SignalPlotter(signals = [signal, pf.computed_trajectory, hidden]).plot_signals( labels = ['observation', 'hidden', 'original'], coords_to_plot = [9], show = True)
+    return np.max(pf.weights), err
 
-itr = 100
-for n in [200]:
-    for d in [10, 50, 250]:
+itr = 1
+for n in [10, 100]:
+    for d in [100, 50]:
         max_w = []
+        err = []
+        evar = []
         for i in range(itr):
-            print('iteration = {}:'.format(i))
-            max_w.append(collapse(n,d))
-        plt.title("(d, n) = ({}, {})".format(d, n))
-        plt.xlabel("maximum weight")
-        plt.hist(max_w, bins = 15, color = "grey")
-        plt.savefig("../images/rho6/ipf_max_weight_{}_{}_{}_{}.png".format(d, n, itr, rho))
+            #print('iteration = {}:'.format(i))
+            w, e = collapse(n,d)
+            max_w.append(w)
+            err.append(e)
+
+        print('(n, d, rho) = ({}, {}, {})\n(emean, evar) = ({},{})'.format(n,d,rho,np.mean(err), np.std(err)))
 #plt.show()

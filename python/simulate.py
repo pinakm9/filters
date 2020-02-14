@@ -543,7 +543,7 @@ class GaussianErrorModel(MarkovChain):
 
         # compute the conditional_pdf
         self.error_mean = np.dot(G, mu)
-        self.error_cov = np.dot(np.dot(G, sigma), G.T)
+        self.error_cov = np.linalg.multi_dot([G, sigma, G.T])
         conditional_pdf = lambda x, condition: scipy.stats.multivariate_normal.pdf(x, mean = f(condition) + self.error_mean, cov = self.error_cov)
 
         super().__init__(size = size, prior = prior, algorithm = algorithm, conditional_pdf = conditional_pdf)

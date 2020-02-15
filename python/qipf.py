@@ -50,7 +50,8 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     # construct a ParticleFilter object
     hidden = model.hidden_state.generate_path()
     signal = model.observation.generate_path()
-    pf = fl.QuadraticImplicitPF(model, n, grad, hessian, cholesky_factor_invT)#fl.RandomQuadraticIPF(model, n, grad, minimum)#
+    pf = fl.QuadraticImplicitPF(model, n, grad, hessian, cholesky_factor_invT)
+    #pf = fl.RandomQuadraticIPF(model, n, grad, minimum)#
     pf.update(signal, threshold_factor = 0.0, method = 'mean')
     err = pf.compute_error()
     print("Error mean  mean= {}, Error mean standard deviation = {}".format(np.mean(err[1]), np.mean(err[2])))
@@ -58,14 +59,14 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     return np.max(pf.weights)
 
 itr = 100
-for n in [200]:
-    for d in [10, 50, 250]:
+for n in [100]:
+    for d in [10, 50, 100]:
         max_w = []
         for i in range(itr):
             print('iteration = {}:'.format(i))
             max_w.append(collapse(n,d))
         plt.title("(d, n) = ({}, {})".format(d, n))
         plt.xlabel("maximum weight")
-        plt.hist(max_w, bins = 15, color = "grey")
-        plt.savefig("../images/rho6/ipf_max_weight_{}_{}_{}_{}.png".format(d, n, itr, rho))
+        plt.hist(max_w, bins = 15, color = "darkgreen")
+        plt.savefig("../images/imp2/ipf_max_weight_{}_{}_{}_{}.png".format(d, n, itr, rho))
 #plt.show()

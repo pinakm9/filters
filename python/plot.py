@@ -102,7 +102,7 @@ class SignalPlotter(object):
                 for j, signal in enumerate(self.signals):
                     signal = ut.Picker(signal[:, coords_to_plot[i]]).equidistant(objs_to_pick = max_pts)
                     ax[i].plot(t, signal, label = labels[j], linestyle = line_styles[j])
-                    ax[i].set(ylabel = 'dimension {}'.format(coords_to_plot[i]))
+                    ax[i].set(ylabel = 'dimension {}'.format(coords_to_plot[i] + 1))
                     ax[i].yaxis.set_label_position('right')
                 ax[i].legend()
             fig.text(0.5, 0.05, 'time({})'.format(time_unit), ha='center', va='center')

@@ -6,7 +6,7 @@ import plot
 import matplotlib.pyplot as plt
 import utility as ut
 #np.random.seed(seed = 1)
-rho = .4
+rho = 1
 
 #@ut.timer
 def collapse(n, d): # n -> number of particles, d -> dimension of the problem
@@ -50,17 +50,19 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     # construct a ParticleFilter object
     hidden = model.hidden_state.generate_path()
     signal = model.observation.generate_path()
-    pf = fl.QuadraticImplicitPF(model, n, grad, hessian, cholesky_factor_invT)#fl.RandomQuadraticIPF(model, n, grad, minimum)###fl.ParticleFilter(model, n)
+    pf = fl.QuadraticImplicitPF(model, n, grad, hessian, cholesky_factor_invT)
+    #pf = fl.RandomQuadraticIPF(model, n, grad, minimum)###fl.ParticleFilter(model, n)
     pf.update(signal, threshold_factor = 0.0, method = 'mean')
     err = pf.compute_error()[0][0]
     err = np.sqrt(np.dot(err, err))
     #print("Error mean  mean= {}, Error mean standard deviation = {}".format(err, evar))
-    plot.SignalPlotter(signals = [signal, pf.computed_trajectory, hidden]).plot_signals( labels = ['observation', 'hidden', 'original'], coords_to_plot = [9], show = True)
+    plot.SignalPlotter(signals = [ pf.computed_trajectory, hidden]).plot_signals( labels = ['computed', 'actual'], coords_to_plot = [9],\
+     save = True, file_path = '../images/imp2/{}_{}_{}.png'.format(d, n, 10))
     return np.max(pf.weights), err
 
 itr = 1
-for n in [10, 100]:
-    for d in [100, 50]:
+for n in [10, 50, 100]:
+    for d in [10, 50, 100]:
         max_w = []
         err = []
         evar = []
@@ -70,5 +72,5 @@ for n in [10, 100]:
             max_w.append(w)
             err.append(e)
 
-        print('(n, d, rho) = ({}, {}, {})\n(emean, evar) = ({},{})'.format(n,d,rho,np.mean(err), np.std(err)))
+        print('(n, d, rho) = ({}, {}, {})'.format(n,d,rho))
 #plt.show()

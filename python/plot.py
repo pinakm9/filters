@@ -41,7 +41,7 @@ class SignalPlotter(object):
             self.dimension = dimension
 
     def plot_signals(self, labels = [], line_styles = ['solid', 'dotted', 'dashed'],  max_pts = 100, fig_size = (7,6), time_unit = 'second', coords_to_plot = [],\
-                    show = False, save = False, file_path = None):
+                    show = False, save = False, file_path = None, title = None):
         """
         Description:
             Plots observed and processed signals depending on the dimension of the problem
@@ -106,6 +106,9 @@ class SignalPlotter(object):
                     ax[i].yaxis.set_label_position('right')
                 ax[i].legend()
             fig.text(0.5, 0.05, 'time({})'.format(time_unit), ha='center', va='center')
+
+        if title is not None:
+            plt.title(title)
         if show is True:
             plt.show()
         if save is True:

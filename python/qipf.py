@@ -5,7 +5,7 @@ import simulate as sm
 import plot
 import matplotlib.pyplot as plt
 import utility as ut
-#np.random.seed(seed = 1)
+np.random.seed(seed = 16694)
 rho = 1
 
 @ut.timer
@@ -59,8 +59,8 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     return np.max(pf.weights)
 
 itr = 100
-for n in [100]:
-    for d in [10, 50, 100]:
+for n in [10]:
+    for d in [100]:
         max_w = []
         for i in range(itr):
             print('iteration = {}:'.format(i))

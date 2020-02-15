@@ -5,7 +5,7 @@ import simulate as sm
 import plot
 import matplotlib.pyplot as plt
 import utility as ut
-#np.random.seed(seed = 1)
+np.random.seed(seed = 16)
 rho = 1
 
 #@ut.timer
@@ -57,7 +57,7 @@ def collapse(n, d): # n -> number of particles, d -> dimension of the problem
     err = np.sqrt(np.dot(err, err))
     #print("Error mean  mean= {}, Error mean standard deviation = {}".format(err, evar))
     plot.SignalPlotter(signals = [ pf.computed_trajectory, hidden]).plot_signals( labels = ['computed', 'actual'], coords_to_plot = [9],\
-     save = True, file_path = '../images/imp2/{}_{}_{}.png'.format(d, n, 10))
+     save = True, file_path = '../images/imp2/{}_{}_{}.png'.format(d, n, 10), title = "(d, n) = ({}, {})".format(d, n))
     return np.max(pf.weights), err
 
 itr = 1

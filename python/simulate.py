@@ -499,6 +499,7 @@ class MarkovChain(StochasticProcess):
         current_value = self.current_path[0]
         for sim in self.sims[1:]:
             self.current_path.append(sim.algorithm(current_value)) # last generated path
+        self.current_path = np.array(self.current_path)
         return self.current_path
 
 
@@ -535,6 +536,7 @@ class SPConditional(StochasticProcess):
         self.current_path = []
         for i, sim in enumerate(self.sims):
             self.current_path.append(sim.algorithm(conditions[i])) # last generated path
+        self.current_path = np.array(self.current_path)
         return self.current_path
 
 class GaussianErrorModel(MarkovChain):

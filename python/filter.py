@@ -103,12 +103,9 @@ class ParticleFilter():
             prob2 = self.model.observation.conditional_pdf(observation, self.particles[i])
             #prob3 = self.importance_pdf(new_particles[i], self.particles[i])
             self.weights[i] *= prob2
-        print(self.weights.sum(), np.max(self.weights))
+        # print(self.weights.sum(), np.max(self.weights))
         # normalize weights
-        try:
             self.weights /= self.weights.sum()
-        except:
-            print("weights are : ", self.weights)
 
         if self.save_trajectories:
             self.trajectories = np.append(self.trajectories, [self.particles], axis = 0)
@@ -130,7 +127,7 @@ class ParticleFilter():
             indices = np.random.choice(self.particle_count, self.particle_count, p = self.weights)
             self.particles = np.take(a = self.particles, indices = indices, axis = 0)
             self.weights = np.ones(self.particle_count)/self.particle_count
-            print("resampled weights:", self.weights.sum(), np.max(self.weights))
+            #print("resampled weights:", self.weights.sum(), np.max(self.weights))
             # create weight map for faster computation
             index_map = dict(cl.Counter(indices))
             self.weight_map = np.zeros((len(index_map), 2))
@@ -181,8 +178,7 @@ class ParticleFilter():
         """
         for observation in observations:
             self.compute_weights(observation = observation)
-            if threshold_factor > 0.0:
-                self.resample(threshold_factor = threshold_factor)
+            self.resample(threshold_factor = threshold_factor)
             if method is not None:
                 self.compute_trajectory(method = method)
         return self.weights

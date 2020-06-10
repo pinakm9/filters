@@ -269,7 +269,7 @@ class Simulation(object):
 
     Attributes:
         rv: random variable to simulate, default = None
-        current_value: last simulated value of self.rv
+        #current_value: last simulated value of self.rv
         algorithm: function that returns a single smaple
         dimension: dimension of the codomain of the random variable d
         algorithm_args: keyword arguments for constructing self.algorithm which produces a single sample
@@ -284,7 +284,7 @@ class Simulation(object):
         self.algorithm only accepts *args as its arguments
     """
 
-    def __init__(self, target_rv = None, algorithm = lambda *args: 0.0, **algorithm_args):
+    def __init__(self, target_rv = None, algorithm = lambda *x: 0.0, *args, **algorithm_args):
         """
         Args:
             target_rv: random variable to simulate
@@ -298,9 +298,9 @@ class Simulation(object):
         # self.uniform  = np.random.uniform # uniform distribution, needed for multiprocessing compatibility
         # self.choice = np.random.choice # discrete distribution, needed for multiprocessing compatibility
         # self.gamma = np.random.gamma # gamma distribution, needed for multiprocessing compatibility
-        self.set_algorithm(algorithm, **algorithm_args)
+        self.set_algorithm(algorithm, *args, **algorithm_args)
 
-    def generate(self, sample_size):
+    def generate(self, sample_size, *args):
         """
         Description:
             Generates a batch of samples using self.algorithm
@@ -310,7 +310,7 @@ class Simulation(object):
             self.samples
         """
         self.size = sample_size # number of samples to be collected
-        self.samples = np.array([self.algorithm() for i in range(self.size)]) # container for the collected samples
+        self.samples = np.array([self.algorithm(*args) for i in range(self.size)]) # container for the collected samples
         self.mean = np.mean(self.samples)
         self.var = np.var(self.samples, ddof = 1) # unbiased estimator
         return self.samples
@@ -358,10 +358,10 @@ class Simulation(object):
             plt.show()
         return fig, ax
 
-    def set_algorithm(self, algorithm, **algorithm_args):
+    def set_algorithm(self, algorithm, *args, **algorithm_args):
         """
         Description:
-            Constructs self.algorithm and sets self.dimension
+            Constructs self.algorithm and sets #self.dimension
 
         Args:
             algorithm: a function that produces a single sample of target_rv
@@ -369,27 +369,23 @@ class Simulation(object):
         """
         # set built-in algorithm for simulation/sampling if possible
         if algorithm == 'inverse':
-            algorithm = lambda *args: inverse_transform(self.algorithm_args['inv_cdf'], **self.rv.params) # algorithm_args = {'inv_cdf': -}
+            algorithm = lambda *args: inverse_transform(*args, self.algorithm_args['inv_cdf'], **self.rv.params) # algorithm_args = {'inv_cdf': -}
         elif algorithm == 'composition':
-            algorithm = lambda *args: composition(**self.algorithm_args) # algorithm_args = {'sim_components': -, 'probabilties': -}
+            algorithm = lambda *args: composition(*args, **self.algorithm_args) # algorithm_args = {'sim_components': -, 'probabilties': -}
         elif algorithm == 'rejection':
-            algorithm = lambda *args: rejection(self.rv, **self.algorithm_args) # algorithm_args = {'helper_rv': -, 'ratio_bound': -} (helper_rv must have pdf assigned)
+            algorithm = lambda *args: rejection(*args, self.rv, **self.algorithm_args) # algorithm_args = {'helper_rv': -, 'ratio_bound': -} (helper_rv must have pdf assigned)
         elif algorithm == 'gamma':
-            algorithm = lambda *args: np.random.gamma(**self.rv.params) # to be modified
+            algorithm = lambda *args: np.random.gamma(*args, **self.rv.params) # to be modified
 
-        def algorithm_(*args):
-            self.current_value = algorithm(**algorithm_args)
-            return self.current_value
-
-        self.algorithm = algorithm_
-
+        self.algorithm = lambda *args: algorithm(*args, **algorithm_args)
+        """
         # figure out the dimension of the problem
         sample = self.algorithm()
         if np.isscalar(sample):
             self.dimension = 1
         else:
             self.dimension = len(sample)
-
+        """
 
 
 
@@ -424,9 +420,9 @@ class StochasticProcess(object):
             self.current_path = None # last generated path of the stochastic process
             self.sims = sims # Simulation objects for the random variables that make up the stochastic process
             self.size = len(sims) # number of the random variables that make up the stochastic process
-            self.dimension = self.sims[0].dimension # dimension of the random variables that make up the stochastic process
+            # self.dimension = self.sims[0].dimension # dimension of the random variables that make up the stochastic process
 
-        def generate_path(self):
+        def generate_path(self, *args):
             """
             Description:
                 Gennerates a single path, sets it to self.current_path
@@ -434,11 +430,11 @@ class StochasticProcess(object):
             Returns:
                 self.current_path
             """
-            self.current_path = np.array([sim.algorithm() for sim in self.sims]) # last generated path
+            self.current_path = np.array([sim.algorithm(*args) for sim in self.sims]) # last generated path
             return self.current_path
 
         @ut.timer
-        def generate_paths(self, num_paths):
+        def generate_paths(self, num_paths, *args):
             """
             Description:
                 Generates a batch of sample paths
@@ -449,7 +445,7 @@ class StochasticProcess(object):
             Returns:
                 self.paths
             """
-            self.paths = np.array([self.generate_path() for i in range(num_paths)]) # container for the generated paths
+            self.paths = np.array([self.generate_path(*args) for i in range(num_paths)]) # container for the generated paths
             return self.paths
 
         def avg_path(self):
@@ -488,8 +484,22 @@ class MarkovChain(StochasticProcess):
         self.algorithm_args = algorithm_args
         sims = [prior]
         for i in range(size - 1):
-            sims.append(Simulation(algorithm = algorithm, past = sims[i], **self.algorithm_args))
+            sims.append(Simulation(algorithm = algorithm, **self.algorithm_args))
         super().__init__(sims)
+
+    def generate_path(self, *args):
+        """
+        Description:
+            Gennerates a single path, sets it to self.current_path
+
+        Returns:
+            self.current_path
+        """
+        self.current_path = [self.sims[0].algorithm(*args)]
+        current_value = self.current_path[0]
+        for sim in self.sims[1:]:
+            self.current_path.append(sim.algorithm(current_value)) # last generated path
+        return self.current_path
 
 
 class SPConditional(StochasticProcess):
@@ -499,7 +509,7 @@ class SPConditional(StochasticProcess):
         where X_t is a given StochasticProcess.
         Parent class : StochasticProcess
     """
-    def __init__(self, conditions, algorithm, conditional_pdf = None, **algorithm_args):
+    def __init__(self, size, algorithm, conditional_pdf = None, **algorithm_args):
         """
         Args:
             conditions: list of Simulation objects that make up X_t
@@ -510,9 +520,22 @@ class SPConditional(StochasticProcess):
         self.conditional_pdf = conditional_pdf
         self.algorithm_args = algorithm_args
         sims = []
-        for condition in conditions:
-            sims.append(Simulation(algorithm = algorithm, condition = condition, **self.algorithm_args))
+        for i in range(size):
+            sims.append(Simulation(algorithm = algorithm, **self.algorithm_args))
         super().__init__(sims)
+
+    def generate_path(self, conditions):
+        """
+        Description:
+            Gennerates a single path, sets it to self.current_path
+
+        Returns:
+            self.current_path
+        """
+        self.current_path = []
+        for i, sim in enumerate(self.sims):
+            self.current_path.append(sim.algorithm(conditions[i])) # last generated path
+        return self.current_path
 
 class GaussianErrorModel(MarkovChain):
     """
@@ -539,7 +562,7 @@ class GaussianErrorModel(MarkovChain):
 
         # figure out simulation algorithm
         def algorithm(past):
-            return self.f(past.current_value) + np.dot(self.G, np.random.multivariate_normal(mu, sigma))
+            return self.f(past) + np.dot(self.G, np.random.multivariate_normal(mu, sigma))
 
         # compute the conditional_pdf
         self.error_mean = np.dot(G, mu)
@@ -555,7 +578,7 @@ class GaussianObservationModel(SPConditional):
         f is a function R^d -> R^d and G is a dxd matrix and z ~ N(mu, sigma)
         Parent class: SPConditional
     """
-    def __init__(self, conditions, f, G, mu, sigma):
+    def __init__(self, size, f, G, mu, sigma):
         """
         Args:
             size: number of random variables in the chain
@@ -573,11 +596,11 @@ class GaussianObservationModel(SPConditional):
 
         # figure out simulation algorithm
         def algorithm(condition):
-            return self.f(condition.current_value) + np.dot(self.G, np.random.multivariate_normal(mu, sigma))
+            return self.f(condition) + np.dot(self.G, np.random.multivariate_normal(mu, sigma))
 
         # compute the conditional_pdf
         self.error_mean = np.dot(G, mu)
         self.error_cov = np.dot(np.dot(G, sigma), G.T)
         conditional_pdf = lambda y, condition: scipy.stats.multivariate_normal.pdf(y, mean = f(condition) + self.error_mean, cov = self.error_cov)
 
-        super().__init__(conditions = conditions, algorithm = algorithm, conditional_pdf = conditional_pdf)
+        super().__init__(size = size, algorithm = algorithm, conditional_pdf = conditional_pdf)

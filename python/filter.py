@@ -71,7 +71,13 @@ class ParticleFilter():
             self.importance_pdf = importance_pdf
         self.save_trajectories = save_trajectories
         self.true_trajectory = self.model.hidden_state.current_path
-        self.computed_trajectory = np.empty((0, self.model.hidden_state.dimension))
+        # figure out the dimension of the problem
+        sample = self.model.hidden_state.sims[0].algorithm()
+        if np.isscalar(sample):
+            self.dimension = 1
+        else:
+            self.dimension = len(sample)
+        self.computed_trajectory = np.empty((0, self.dimension))
         if save_trajectories:
             self.trajectories = [self.particles]
         #super().__init__(dimension = self.model.hidden_state.sims[0].dimension, start_time = start_time, time_step = time_step)
@@ -85,17 +91,24 @@ class ParticleFilter():
         Returns:
             self.weights
         """
-        # create a new dimension to add to the particles
-        self.particles = self.model.hidden_state.sims[self.current_time].generate(self.particle_count)
+        # predict the new particles
+        if self.current_time > 0:
+            new_particles = [self.model.hidden_state.sims[self.current_time].generate(1, particle)[0] for particle in self.particles]
+        else:
+            new_particles = self.model.hidden_state.sims[0].generate(self.particle_count)
+        self.particles = new_particles
         # compute new weights
         for i in range(self.particle_count):
             #prob1 = self.model.hidden_state.conditional_pdf(new_particles[i], self.particles[i])
             prob2 = self.model.observation.conditional_pdf(observation, self.particles[i])
             #prob3 = self.importance_pdf(new_particles[i], self.particles[i])
             self.weights[i] *= prob2
-        #print(self.weights.sum(), np.max(self.weights))
+        print(self.weights.sum(), np.max(self.weights))
         # normalize weights
-        self.weights /= self.weights.sum()
+        try:
+            self.weights /= self.weights.sum()
+        except:
+            print("weights are : ", self.weights)
 
         if self.save_trajectories:
             self.trajectories = np.append(self.trajectories, [self.particles], axis = 0)
@@ -117,7 +130,7 @@ class ParticleFilter():
             indices = np.random.choice(self.particle_count, self.particle_count, p = self.weights)
             self.particles = np.take(a = self.particles, indices = indices, axis = 0)
             self.weights = np.ones(self.particle_count)/self.particle_count
-
+            print("resampled weights:", self.weights.sum(), np.max(self.weights))
             # create weight map for faster computation
             index_map = dict(cl.Counter(indices))
             self.weight_map = np.zeros((len(index_map), 2))
@@ -180,8 +193,14 @@ class ParticleFilter():
             Computes error in assimilation for a random path
         """
         error = self.true_trajectory - self.computed_trajectory
-        return error, np.mean(error, axis = 0), np.std(error, axis = 0)
+        return np.linalg.norm(error), np.mean(error, axis = 0), np.std(error, axis = 0)
 
+
+    def ecdf(self, x):
+        result = 0.0
+        for i in range(self.particle_count):
+            result += self.weights[i]*np.prod(x > self.particles[i])
+        return result
 
 
 class QuadraticImplicitPF(ParticleFilter):
@@ -196,8 +215,8 @@ class QuadraticImplicitPF(ParticleFilter):
         self.grad = grad # gradient of F_k, it's a function of form f(x, y, x_0)
         self.hessian = hessian # hessian of F_k, it's a function of form f(x, y, x_0)
         self.cholesky_factor_invT = cholesky_factor_invT # inverse transpose of Cholesky factor of H, it's a function of form f(x, y, x_0)
-        self.std_mean = [0]*self.model.hidden_state.dimension
-        self.std_cov = np.identity(self.model.hidden_state.dimension)
+        self.std_mean = [0]*self.dimension
+        self.std_cov = np.identity(self.dimension)
         # figure out covariances to define F_k = negative log of product of conditional pdfs
         self.dynamic_cov_inv = np.linalg.inv(self.model.hidden_state.error_cov)
         self.measurement_cov_inv = np.linalg.inv(self.model.observation.error_cov)
@@ -277,8 +296,8 @@ class RandomQuadraticIPF(ParticleFilter):
         super().__init__(model = model, particle_count = particle_count, save_trajectories = save_trajectories)
         self.grad = grad # gradient of F_k, it's a function of form f(x, y, x_0)
         self.minimum = minimum # minimum of F_k, it's a function of form f(y, x_0)
-        self.std_mean = [0]*self.model.hidden_state.dimension
-        self.std_cov = np.identity(self.model.hidden_state.dimension)
+        self.std_mean = [0]*self.dimension
+        self.std_cov = np.identity(self.dimension)
 
         # figure out covariances to define F_k = negative log of product of conditional pdfs
         self.dynamic_cov_inv = np.linalg.inv(self.model.hidden_state.error_cov)
@@ -333,7 +352,7 @@ class RandomQuadraticIPF(ParticleFilter):
                 # solve for current particle position and compute Jacobian
                 lam = opt.fsolve(f, 0.01, fprime = fprime)[0]
                 # print("{}----------{}".format(lam, f(lam)))
-                J = lam**(self.model.hidden_state.dimension-1)*rho**(1-0.5*self.model.hidden_state.dimension)/fprime(lam)
+                J = lam**(self.dimension-1)*rho**(1-0.5*self.dimension)/fprime(lam)
                 self.particles[k] = mu_k + lam*eta #** don't shift this line up
 
                 # compute weight of k-th particle

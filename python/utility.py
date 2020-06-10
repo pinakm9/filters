@@ -63,3 +63,25 @@ def normalize_small(numbers, threshold = 50):
 	for i, number in enumerate(numbers):
 		if max_log - log_numbers[i] > threshold:
 			number[i] = 0.0
+
+def KL_div_MC(p, q, samples):
+	result = 0.0
+	for x in samples:
+		px = p(x)
+		result += px*np.log(px/q(x))
+	return result/len(samples)
+
+def TV_dist_MC(p, q, samples):
+	result = 0.0
+	for x in samples:
+		result +=np.abs(p(x)-q(x))
+	return 0.5*result/len(samples)
+
+def TV_dist_MC_avg(p, q, samples, batch):
+	dist = 0.0
+	for i in range(int(len(samples)/batch)):
+		result = 0.0
+		for x in samples[i*batch: (i+1)*batch]:
+			result +=np.abs(p(x)-q(x))
+		dist += result/batch
+	return 0.5*dist/(len(samples)/batch)

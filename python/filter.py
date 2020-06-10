@@ -93,7 +93,7 @@ class ParticleFilter():
         """
         # predict the new particles
         if self.current_time > 0:
-            new_particles = [self.model.hidden_state.sims[self.current_time].generate(1, particle)[0] for particle in self.particles]
+            new_particles = [self.model.hidden_state.sims[self.current_time].generate(1)[0] for particle in self.particles]
         else:
             new_particles = self.model.hidden_state.sims[0].generate(self.particle_count)
         self.particles = new_particles

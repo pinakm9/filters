@@ -4,7 +4,7 @@ import filter as fl
 from scipy.stats import multivariate_normal
 import utility as ut
 import matplotlib.pyplot as plt
-import plot
+#import plot
 """
  Goal: To compute the distance between the actual filtering distribution and the one given by particle filter
  for a problem with known solution
@@ -13,7 +13,7 @@ import plot
 """
 A 2D problem with known solution
 """
-s = 50
+s = 1
 # Create a Markov chain
 prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(np.array([0.,0.]), np.diag([1.,1.])))
 f = lambda x: x
@@ -82,12 +82,16 @@ print("\n\n########## Total Variation ###########\n{}\n#########################
 Kolmogorov-Smirnov distance
 """
 
-samples = list(pf.particles[:-1]) + list(np.random.multivariate_normal(mean, cov, 100))
+samples = list(pf.particles[:-1]) + list(np.random.multivariate_normal(mean, cov, 1000))
 dist = max([abs(actual_cdf(x) - pf.ecdf(x)) for x in samples])
 print("Kolmogorov-Smirnov distance : {}".format(dist))
 
 
 m = np.average(pf.particles, weights = pf.weights, axis = 0)
 print(m, mean)
-print(np.array(hidden_path)[:,0])
-plot.SignalPlotter(signals = [hidden_path, observed_path]).plot_signals(coords_to_plot = [0], show = True)
+print(pf.particles[:,  0])
+# plot.SignalPlotter(signals = [hidden_path, observed_path]).plot_signals(coords_to_plot = [0], show = True)
+plt.scatter(pf.particles[:, 0], pf.particles[:, 1])
+plt.scatter([m[0]], [m[1]], color = 'red')
+plt.scatter([mean[0]], [mean[1]], color = 'green')
+plt.show()

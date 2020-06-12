@@ -1,5 +1,6 @@
 # Classes defining generic signal-processing filters
 import numpy as np
+import scipy
 import utility as ut
 import simulate as sm
 import collections as cl
@@ -49,12 +50,11 @@ class ParticleFilter():
         weights: weights computed by the particle filter
         current_time: integer-valued time starting at 0 denoting index of current hidden state
     """
-    def __init__(self, model, particle_count, importance_pdf = None, save_trajectories = False):
+    def __init__(self, model, particle_count, save_trajectories = False):
         """
         Args:
             model: a ModelPF object containing the dynamic and measurement models
             particle_count: number of particles to be used
-            importance_pdf: importance pdf for the particle filter, it's a function of form p(x, condition) (argument names can be anything)
             start_time: time at first obeservation, default = 0.0
             time_step: time step between consecutive observations, default = 1.0
         """
@@ -64,11 +64,7 @@ class ParticleFilter():
         self.particle_count = particle_count
         self.weights = np.ones(particle_count)/particle_count
         self.current_time = 0
-        # if importance density is not provided we use the bootstrap filter
-        if importance_pdf is None:
-            self.importance_pdf = self.model.hidden_state.conditional_pdf
-        else:
-            self.importance_pdf = importance_pdf
+
         self.save_trajectories = save_trajectories
         self.true_trajectory = self.model.hidden_state.current_path
         # figure out the dimension of the problem
@@ -231,6 +227,125 @@ class ParticleFilter():
         for i in range(self.particle_count):
             result += self.weights[i]*np.prod(x > self.particles[i])
         return result
+
+
+
+class GlobalSamplingUPF(ParticleFilter):
+    """
+    Description:
+         A class for defining unscented particle filters
+         Parent class: ParticleFilter
+    Attributes (extra):
+    """
+    def __init__(self, model, particle_count, process_noise_cov, measurement_noise_cov, alpha = 0.1, beta = 2.0, kappa = 0.0, save_trajectories = False):
+        # Construct necessary attributes from parent class
+        super().__init__(model, particle_count, importance_pdf, save_trajectories)
+
+        # Sample particles from the prior
+        self.process_noise_cov = process_noise_cov
+        self.measurement_noise_cov = measurement_noise_cov
+        self.particles = self.model.hidden_state.sims[0].generate(self.particle_count)
+        self.weights = np.array([self.model.hidden_state.sims[0].target_rv.pdf(x) for x in self.particles])
+        self.weights /= self.weights.sum()
+
+        # parameters for the filter
+        self.alpha = alpha
+        self.beta = beta
+        self.kappa = kappa
+        self.aug_dimension = self.dimension + np.shape(self.process_noise_cov)[0] + np.shape(self.process_noise_cov)[0]
+        self.lam = alpha**2(self.aug_dimension + kappa) - self.aug_dimension
+
+        # memory allocation for sigma points and weights
+        self.sigma_pts = np.zeros((self.aug_dimension, 2*self.aug_dimension + 1))
+        self.sigma_weights_m = (0.5/(self.dimension + self.kappa))*np.zeros(2*self.aug_dimension + 1)
+        self.sigma_weights_m[0] *= (2*self.kappa)
+        self.sigma_weights_c = (0.5/(self.dimension + self.kappa))*np.zeros(2*self.aug_dimension + 1)
+        self.sigma_weights_c[0] = self.sigma_weights_m[0] + (1.0 - self.alpha**2 + self.beta)
+
+    def compute_sigma_pts(self):
+        # compute mean and variance of the particles
+        self.importance_mean = np.average(self.particles, weights = self.weights, axis = 0)
+        self.importance_cov = np.zeros((self.dimension, self.dimension))
+
+        for i, x in enumerate(self.particles):
+            x_ = x - self.importance_mean
+            self.importance_cov += self.weights[i]*np.outer(x_, x_)
+
+        # construct augmented mean and covariance
+        aug_mean  = np.concatenate((self.importance_mean, np.zeros(np.shape(self.process_noise_cov)[0]), np.zeros(np.shape(self.process_noise_cov)[0])))
+        aug_cov = scipy.linalg.block_diag(self.importance_cov, self.process_noise_cov, self.measurement_noise_cov)
+
+        # compute sigma points
+        root_matrix = np.linalg.sqrtm((self.aug_dimension + self.lam)*aug_cov)
+        self.sigma_pts[0] = aug_mean
+        for i, column in enumerate(root_matrix):
+            self.sigma_pts[2*i + 1] = aug_mean + column
+            self.sigma_pts[2*(i + 1)] = aug_mean - column
+
+    def importance_sample(self):
+        pass
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 class QuadraticImplicitPF(ParticleFilter):

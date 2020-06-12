@@ -71,8 +71,8 @@ actual_density, actual_cdf, mean, cov = filering_dist(np.array([0.,0.]), np.diag
 """
 Solution using a particle filter
 """
-pf = fl.ParticleFilter(model, particle_count = 1000)
-pf.update(observed_path, threshold_factor = 0.0, method = 'mean')
+pf = fl.ParticleFilter(model, particle_count = 500)
+pf.update(observed_path[0:], threshold_factor = 0.0, method = 'mean')
 
 samples = pf.particles
 print("\n\n########## Total Variation ###########\n{}\n#########################################\n\n".format(ut.TV_dist_MC(actual_density, pf.filtering_pdf, pf.particles)))

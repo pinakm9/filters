@@ -606,3 +606,37 @@ class GaussianObservationModel(SPConditional):
         conditional_pdf = lambda y, condition: scipy.stats.multivariate_normal.pdf(y, mean = f(condition) + self.error_mean, cov = self.error_cov)
 
         super().__init__(size = size, algorithm = algorithm, conditional_pdf = conditional_pdf)
+
+
+class DynamicModel(MarkovChain):
+    """
+    Description:
+        This is a class for defining a MarkovChain of the form x_k = f(x_(k-1), z)
+        z ~ N(0, sigma)
+        Parent class: MarkovChain
+    """
+    def __init__(self, size, prior, f, G, mu, sigma):
+        """
+        Args:
+            size: number of random variables in the chain
+            prior: Simulation object for the first random variable in the chain
+            f: a function from R^d -> R^d as described in the model
+            G: a numpy square matrix as described in the model
+            mu: mean of z, a d-dimensional normal random variable as described in the model
+            sigma: covariance matrix of z, a d-dimensional normal random variable as described in the model
+        """
+        # set parameters for the model
+        self.f = f
+        self.mu = mu
+        self.sigma = sigma
+
+        # figure out simulation algorithm
+        def algorithm(past):
+            return self.f(past) + np.dot(self.G, np.random.multivariate_normal(mu, sigma))
+
+        # compute the conditional_pdf
+        self.error_mean = np.dot(G, mu)
+        self.error_cov = np.linalg.multi_dot([G, sigma, G.T])
+        conditional_pdf = lambda x, condition: scipy.stats.multivariate_normal.pdf(x, mean = f(condition) + self.error_mean, cov = self.error_cov)
+
+        super().__init__(size = size, prior = prior, algorithm = algorithm, conditional_pdf = conditional_pdf)

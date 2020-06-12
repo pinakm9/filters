@@ -93,10 +93,10 @@ class ParticleFilter():
         """
         # predict the new particles
         if self.current_time > 0:
-            new_particles = [self.model.hidden_state.sims[self.current_time].generate(1)[0] for particle in self.particles]
+            self.particles = [self.model.hidden_state.sims[self.current_time].generate(1, particle)[0] for particle in self.particles]
         else:
-            new_particles = self.model.hidden_state.sims[0].generate(self.particle_count)
-        self.particles = new_particles
+            self.particles = self.model.hidden_state.sims[0].generate(self.particle_count)
+
         # compute new weights
         for i in range(self.particle_count):
             #prob1 = self.model.hidden_state.conditional_pdf(new_particles[i], self.particles[i])
@@ -113,6 +113,39 @@ class ParticleFilter():
         self.current_time += 1
         return self.weights
 
+
+    def systematic_resample(self):
+        """ Performs the systemic resampling algorithm used by particle filters.
+        This algorithm separates the sample space into N divisions. A single random
+        offset is used to to choose where to sample from for all divisions. This
+        guarantees that every sample is exactly 1/N apart.
+        Parameters
+        ----------
+        weights : list-like of float
+            list of weights as floats
+        Returns
+        -------
+        indexes : ndarray of ints
+            array of indexes into the weights defining the resample. i.e. the
+            index of the zeroth resample is indexes[0], etc.
+        """
+
+        # make N subdivisions, and choose positions with a consistent random offset
+        positions = (np.random.random() + np.arange(self.particle_count)) / self.particle_count
+
+        indices = np.zeros(self.particle_count, 'i')
+        cumulative_sum = np.cumsum(self.weights)
+        i, j = 0, 0
+        while i < self.particle_count:
+            if positions[i] < cumulative_sum[j]:
+                indices[i] = j
+                i += 1
+            else:
+                j += 1
+        self.particles = np.array([self.particles[i] for i in indices])
+        self.weights = np.ones(self.particle_count)/self.particle_count
+        return len(np.unique(indices))
+
     def resample(self, threshold_factor = 0.1):
         """
         Description:
@@ -125,15 +158,16 @@ class ParticleFilter():
         # resample if effective particle count criterion is met
         if 1.0/(self.weights**2).sum() < threshold_factor*self.particle_count:
             indices = np.random.choice(self.particle_count, self.particle_count, p = self.weights)
-            self.particles = np.take(a = self.particles, indices = indices, axis = 0)
-            self.weights = np.ones(self.particle_count)/self.particle_count
+            u = self.systematic_resample()#np.take(a = self.particles, indices = indices, axis = 0)
+            print("\n\n$$$$$$$$$$$$$$$$$$$$$ Num particles = {} $$$$$$$$$$$$$$$$$$$$\n\n".format(u))
             #print("resampled weights:", self.weights.sum(), np.max(self.weights))
             # create weight map for faster computation
+            """
             index_map = dict(cl.Counter(indices))
             self.weight_map = np.zeros((len(index_map), 2))
             for i, (key, value) in enumerate(index_map.items()):
                 self.weight_map[i] = [key, value*self.weights[0]]
-
+            """
             return True # resampling occurred
         return False # resampling didn't occur
 

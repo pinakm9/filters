@@ -4,7 +4,7 @@ import filter as fl
 from scipy.stats import multivariate_normal
 import utility as ut
 import matplotlib.pyplot as plt
-import plot
+#import plot
 """
  Goal: To compute the distance between the actual filtering distribution and the one given by particle filter
  for a problem with known solution
@@ -13,7 +13,7 @@ import plot
 """
 A 2D problem with known solution
 """
-s = 100
+s = 20
 # Create a Markov chain
 prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(np.array([0.,0.]), np.diag([1.,1.])))
 f = lambda x: x
@@ -71,8 +71,24 @@ actual_density, actual_cdf, mean, cov = filering_dist(np.array([0.,0.]), np.diag
 """
 Solution using a particle filter
 """
-pf = fl.ParticleFilter(model, particle_count = 1000)
-pf.update(observed_path, threshold_factor = 0.0, method = 'mean')
+d=2
+# figure out gradient to pass to QuadraticImplicitPF
+def grad(x, y, x_0):
+    return (x - x_0) + (x - y)
+
+def minimum(y, x_0):
+    return (x_0 + y)/(1.0 + 1.0)
+
+L = np.sqrt(1.0/(1.0 + 1.0))*np.identity(d)
+H = (1.0 + 1.0)*np.identity(d)
+
+def hessian(x, y, x_0):
+    return H
+
+def cholesky_factor_invT(x, y, x_0):
+    return L
+pf = fl.QuadraticImplicitPF(model, 1000, grad, hessian, cholesky_factor_invT)
+pf.update(observed_path, threshold_factor = 0.1, method = 'mean')
 
 samples = pf.particles
 print("\n\n########## Total Variation ###########\n{}\n#########################################\n\n".format(ut.TV_dist_MC(actual_density, pf.filtering_pdf, pf.particles)))
@@ -95,4 +111,3 @@ plt.scatter(*zip(*pf.particles))
 plt.scatter([m[0]], [m[1]], color = 'red')
 plt.scatter([mean[0]], [mean[1]], color = 'green')
 plt.show()
-plot.SignalPlotter(signals = [ pf.computed_trajectory, hidden_path]).plot_signals( labels = ['computed', 'actual'], coords_to_plot = [0], show = True)

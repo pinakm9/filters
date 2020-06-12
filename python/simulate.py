@@ -358,7 +358,7 @@ class Simulation(object):
             plt.show()
         return fig, ax
 
-    def set_algorithm(self, algorithm, *args, **algorithm_args):
+    def set_algorithm(self, algorithm, **algorithm_args):
         """
         Description:
             Constructs self.algorithm and sets #self.dimension
@@ -377,7 +377,7 @@ class Simulation(object):
         elif algorithm == 'gamma':
             algorithm = lambda *args: np.random.gamma(*args, **self.rv.params) # to be modified
 
-        self.algorithm = lambda *args: algorithm(*args, **algorithm_args)
+        self.algorithm = algorithm #lambda *args: algorithm(*args, **algorithm_args)
         """
         # figure out the dimension of the problem
         sample = self.algorithm()

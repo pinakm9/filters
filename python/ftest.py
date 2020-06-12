@@ -7,4 +7,4 @@ def g(fn, **algorithm_args):
 
 
 f1 = g(f, **{'b': 3, 'c': 4})
-f1(-9, -8)
+f1()

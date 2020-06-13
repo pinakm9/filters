@@ -204,6 +204,7 @@ class ParticleFilter():
         Returns:
             self.weights
         """
+        self.current_time = 0
         self.observed_path = observations
         for observation in self.observed_path:
             self.compute_weights(observation = observation)
@@ -213,21 +214,25 @@ class ParticleFilter():
                 self.current_time += 1
         return self.weights
 
-    def compute_error(self):
+    def compute_error(self, hidden_path):
         """
         Description:
             Computes error in assimilation for a random path
         """
-        error = self.true_trajectory - self.computed_trajectory
-        return np.linalg.norm(error), np.mean(error, axis = 0), np.std(error, axis = 0)
-
+        self.error = hidden_path - self.computed_trajectory
+        self.rmse = np.linalg.norm(self.error)/np.sqrt(len(hidden_path))
+        self.error_mean = np.mean(self.error, axis = 0)
+        self.error_cov = np.std(self.error, axis = 0)
 
     def plot_trajectories(self, hidden_path, coords_to_plot, show = False, save = False, file_path = None, title = None):
-        self.hidden_path = hidden_path
-        plot.SignalPlotter(signals = [self.hidden_path, self.observed_path, self.computed_trajectory])\
+        plot.SignalPlotter(signals = [hidden_path, self.observed_path, self.computed_trajectory])\
             .plot_signals(labels = ['hidden', 'observed', 'computed'], styles = [{'linestyle':'solid'}, {'marker':'x'}, {'marker':'o'}],\
-            colors = ['black', 'blue', 'red'], coords_to_plot = coords_to_plot, show = show, save = save, file_path = file_path, title = title)
+            plt_fns = ['plot', 'scatter', 'scatter'], colors = ['black', 'blue', 'red'], coords_to_plot = coords_to_plot,\
+            show = show, save = save, file_path = file_path, title = title)
 
+    def plot_error(self, show = False, save = False, file_path = None, title = None):
+        plot.SignalPlotter(signals = [abs(self.error)]).plot_signals(labels = ['absolute error'], styles = [{'linestyle':'solid'}],\
+            plt_fns = ['plot'], colors = ['black'], coords_to_plot = [0], show = show, save = save, file_path = file_path, title = title)
 
 class GlobalSamplingUPF(ParticleFilter):
     """
@@ -386,6 +391,7 @@ class GlobalSamplingUPF(ParticleFilter):
         Returns:
             self.weights
         """
+        self.current_time = 0
         self.observed_path = observations
         for observation in self.observed_path:
             self.compute_weights(observation = observation)

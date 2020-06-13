@@ -69,7 +69,7 @@ actual_density, actual_cdf, mean, cov = filering_dist(mu, id, observed_path[1:])
 """
 Solution using a gsupf
 """
-pf = fl.GlobalSamplingUPF(model, particle_count = 1000, alpha = 1, kappa = 2, beta = 0)
+pf = fl.GlobalSamplingUPF(model, particle_count = 100, alpha = 1, kappa = 2, beta = 0)
 
 pf.update(observed_path , threshold_factor = 0.1, method = 'mean')
 
@@ -86,3 +86,5 @@ plt.scatter([m[0]], [m[1]], color = 'red')
 plt.scatter([mean[0]], [mean[1]], color = 'green')
 plt.show()
 pf.plot_trajectories(hidden_path, coords_to_plot = [0, 1], show = True)
+pf.compute_error(hidden_path)
+pf.plot_error(show = True)

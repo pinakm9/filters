@@ -234,6 +234,8 @@ class ParticleFilter():
         plot.SignalPlotter(signals = [abs(self.error)]).plot_signals(labels = ['absolute error'], styles = [{'linestyle':'solid'}],\
             plt_fns = ['plot'], colors = ['black'], coords_to_plot = [0], show = show, save = save, file_path = file_path, title = title)
 
+
+
 class GlobalSamplingUPF(ParticleFilter):
     """
     Description:
@@ -341,11 +343,12 @@ class GlobalSamplingUPF(ParticleFilter):
         else:
             self.particles = self.model.hidden_state.sims[0].generate(self.particle_count)
             self.prev_particles = np.copy(self.particles)
-            self.weights = np.array([self.model.hidden_state.sims[0].rv.pdf(x) for x in self.particles])
+            self.weights = np.array([self.model.observation.conditional_pdf(observation, x) for x in self.particles])
             #print("\n\nweights\n=====================\n{}\n".format(self.weights))
 
         # normalize weights
         self.weights /= self.weights.sum()
+
         # compute mean and variance of the particles
         self.importance_mean = np.average(self.particles, weights = self.weights, axis = 0)
         self.importance_cov = np.zeros((self.dimension, self.dimension))

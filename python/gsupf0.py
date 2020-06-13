@@ -13,11 +13,12 @@ for a problem with known solution
 """
 A 2D problem with known solution
 """
-d = 2
-s = 10
+d = 1
+s = 100
 mu = np.zeros(2)
 id = np.identity(d)
 # Create a Markov chain
+gamma_rv =  sm.RVContinuous(name = 'normal', shape = 3, scale = 0.5)
 prior = sm.Simulation(target_rv = sm.RVContinuous(name = 'normal', mean = mu, cov = id), \
                       algorithm = lambda *args: np.random.multivariate_normal(mu, id))
 
@@ -53,10 +54,10 @@ def one_step_predict_update(m, P, y):
     return m_, P_
 
 def n_step_predict_update(m, P, Y):
-    m_, P_ = m, P
     for y in Y:
-        m_, P_ =  one_step_predict_update(m_, P_, y)
-    return m_, P_
+        m_, P_ =  one_step_predict_update(m, P, y)
+        m, P = m_, P_
+    return m, P
 
 def filering_dist(m, P, Y):
     m_, P_ = n_step_predict_update(m, P, Y)

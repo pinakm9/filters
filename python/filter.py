@@ -105,8 +105,6 @@ class ParticleFilter():
 
         if self.save_trajectories:
             self.trajectories = np.append(self.trajectories, [self.particles], axis = 0)
-
-        self.current_time += 1
         return self.weights
 
 
@@ -211,6 +209,7 @@ class ParticleFilter():
             self.resample(threshold_factor = threshold_factor)
             if method is not None:
                 self.compute_trajectory(method = method)
+        self.current_time += 1
         return self.weights
 
     def compute_error(self):
@@ -241,29 +240,27 @@ class GlobalSamplingUPF(ParticleFilter):
         # Construct necessary attributes from parent class
         super().__init__(model, particle_count, save_trajectories)
 
-        # Sample particles from the prior
+        # store process and measurement noises
         self.process_noise_cov = self.model.hidden_state.sigma
         self.measurement_noise_cov = self.model.observation.sigma
-        self.particles = self.model.hidden_state.sims[0].generate(self.particle_count)
-        self.weights = np.array([self.model.hidden_state.sims[0].rv.pdf(x) for x in self.particles])
-        self.weights /= self.weights.sum()
 
         # parameters for the filter
         self.alpha = alpha
         self.beta = beta
         self.kappa = kappa
         self.aug_dimension = self.dimension + np.shape(self.process_noise_cov)[0] + np.shape(self.process_noise_cov)[0]
-        self.lam = (alpha**2)*(self.aug_dimension + kappa) - self.aug_dimension
+        self.lam = (self.alpha**2)*(self.aug_dimension + self.kappa) - self.aug_dimension
 
         # memory allocation for sigma points and weights
         self.sigma_pts = np.zeros((2*self.aug_dimension + 1, self.aug_dimension))
         self.sigma_weights_m = (0.5/(self.dimension + self.lam))*np.ones(2*self.aug_dimension + 1)
         self.sigma_weights_m[0] *= (2*self.lam)
-        self.sigma_weights_c = (0.5/(self.dimension + self.lam))*np.ones(2*self.aug_dimension + 1)
+        self.sigma_weights_c = np.copy(self.sigma_weights_m)
         self.sigma_weights_c[0] = self.sigma_weights_m[0] + (1.0 - self.alpha**2 + self.beta)
 
         print("\n\nweights_c\n=====================\n{}\n".format(self.sigma_weights_c))
         print("\n\nweights_m\n=====================\n{}\n".format(self.sigma_weights_m))
+
 
     def compute_sigma_pts(self):
         # compute mean and variance of the particles
@@ -279,6 +276,7 @@ class GlobalSamplingUPF(ParticleFilter):
         aug_cov = scipy.linalg.block_diag(self.importance_cov, self.process_noise_cov, self.measurement_noise_cov)
 
         # compute sigma points
+        #print("\n\naug_cov\n=====================\n{}\n".format((self.aug_dimension + self.lam)*aug_cov))
         root_matrix = scipy.linalg.sqrtm((self.aug_dimension + self.lam)*aug_cov)
         self.sigma_pts[0] = aug_mean
         for i, column in enumerate(root_matrix):
@@ -286,57 +284,72 @@ class GlobalSamplingUPF(ParticleFilter):
             self.sigma_pts[2*(i + 1)] = aug_mean - column
 
     def compute_weights(self, observation):
-        # Compute chi and gamma
-        chi = np.zeros((2*self.aug_dimension + 1, self.dimension))
-        gamma = np.zeros((2*self.aug_dimension + 1, self.dimension))
+        if self.current_time > 0:
+            # Compute chi and gamma
+            chi = np.zeros((2*self.aug_dimension + 1, self.dimension))
+            gamma = np.zeros((2*self.aug_dimension + 1, self.dimension))
 
-        for i, pt in enumerate(self.sigma_pts):
-            x = pt[ : self.dimension]
-            process_noise = pt[self.dimension : self.dimension + np.shape(self.process_noise_cov)[0]]
-            measurement_noise = pt[self.dimension + np.shape(self.process_noise_cov)[0] : ]
-            chi[i] = self.model.hidden_state.func(x, process_noise)
-            gamma[i] = self.model.observation.func(chi[i], measurement_noise)
+            for i, pt in enumerate(self.sigma_pts):
+                x = pt[ : self.dimension]
+                process_noise = pt[self.dimension : self.dimension + np.shape(self.process_noise_cov)[0]]
+                measurement_noise = pt[self.dimension + np.shape(self.process_noise_cov)[0] : ]
+                chi[i] = self.model.hidden_state.func(self.current_time, x, process_noise)
+                gamma[i] = self.model.observation.func(self.current_time, chi[i], measurement_noise)
 
-        mean_chi = np.dot(self.sigma_weights_m, chi)
-        mean_gamma = np.dot(self.sigma_weights_m, gamma)
+            mean_chi = np.dot(self.sigma_weights_m, chi)
+            mean_gamma = np.dot(self.sigma_weights_m, gamma)
 
-        # Compute P_xx, P_xy, P_yy
-        P_xx = np.zeros((self.dimension, self.dimension))
-        P_yy = np.zeros((self.dimension, self.dimension))
-        P_xy = np.zeros((self.dimension, self.dimension))
+            # Compute P_xx, P_xy, P_yy
+            P_xx = np.zeros((self.dimension, self.dimension))
+            P_yy = np.zeros((self.dimension, self.dimension))
+            P_xy = np.zeros((self.dimension, self.dimension))
 
-        for i, ch in enumerate(chi):
-            vec1 = ch - mean_chi
-            P_xx += self.sigma_weights_c[i] * np.outer(vec1, vec1)
+            for i, ch in enumerate(chi):
+                vec1 = ch - mean_chi
+                P_xx += self.sigma_weights_c[i] * np.outer(vec1, vec1)
 
-            vec2 = gamma[i] - mean_gamma
-            P_yy += self.sigma_weights_c[i] * np.outer(vec2, vec2)
+                vec2 = gamma[i] - mean_gamma
+                P_yy += self.sigma_weights_c[i] * np.outer(vec2, vec2)
 
-            P_xy += self.sigma_weights_c[i] * np.outer(vec1, vec2)
+                P_xy += self.sigma_weights_c[i] * np.outer(vec1, vec2)
 
-        print("\n\nP_yy\n=====================\n{}\n".format(P_yy))
+            # for debugging
+            #print("\n\nP_xx\n=====================\n{}\n".format(P_xx))
+            #print("\n\nP_xx eigenvalues\n=====================\n{}\n".format(np.linalg.eig(P_xx)[0]))
 
-        # Compute Kalman gain and importance mean and variance
-        K = np.dot(P_xy, np.linalg.inv(P_yy))
-        mean = mean_chi + np.dot(K, observation - mean_gamma)
-        cov = P_xx - np.linalg.multi_dot([K, P_yy, K.T])
+            #print("\n\nP_xy\n=====================\n{}\n".format(P_xy))
+            #print("\n\nP_xy eigenvalues\n=====================\n{}\n".format(np.linalg.eig(P_xy)[0]))
 
-        print("\n\ncovariance\n=====================\n{}\n".format(cov))
-        print("\n\ncovariance eigenvalues\n=====================\n{}\n".format(np.linalg.eig(cov)[0]))
+            #print("\n\nP_yy\n=====================\n{}\n".format(P_yy))
+            #print("\n\nP_yy eigenvalues\n=====================\n{}\n".format(np.linalg.eig(P_yy)[0]))
 
-        # Sample new particles and compute weights
-        new_particles = np.random.multivariate_normal(mean, cov, size = self.particle_count)
-        for i, w in enumerate(self.weights):
-            prob1 = self.model.hidden_state.conditional_pdf(new_particles[i], self.particles[i])
-            prob2 = self.model.observation.conditional_pdf(observation, self.particles[i])
-            prob3 = scipy.stats.multivariate_normal.pdf(new_particles[i], mean = mean, cov = cov)
-            self.weights[i] *= (prob1*prob2/prob3)
+            # Compute Kalman gain and importance mean and variance
+            K = np.dot(P_xy, np.linalg.inv(P_yy))
+            mean = mean_chi + np.dot(K, observation - mean_gamma)
+            cov = P_xx - np.linalg.multi_dot([K, P_yy, K.T])
 
-        self.particles = new_particles
+            # print("\n\ncovariance\n=====================\n{}\n".format(cov))
+            # print("\n\ncovariance eigenvalues\n=====================\n{}\n".format(np.linalg.eig(cov)[0]))
+
+            # Sample new particles and compute weights
+            new_particles = np.random.multivariate_normal(mean, cov, size = self.particle_count)
+            for i, w in enumerate(self.weights):
+                prob1 = self.model.hidden_state.conditional_pdf(new_particles[i], self.particles[i])
+                prob2 = self.model.observation.conditional_pdf(observation, self.particles[i])
+                prob3 = scipy.stats.multivariate_normal.pdf(new_particles[i], mean = mean, cov = cov)
+                self.weights[i] *= (prob1*prob2/prob3)
+
+            self.particles = new_particles
+        else:
+            self.particles = self.model.hidden_state.sims[0].generate(self.particle_count)
+            self.weights = np.array([self.model.hidden_state.sims[0].rv.pdf(x) for x in self.particles])
+            #print("\n\nweights\n=====================\n{}\n".format(self.weights))
+
+        # normalize weights
         self.weights /= self.weights.sum()
 
 
-    def update(self, observations, threshold_factor = 0.0, method = 'mean'):
+    def update(self, observations, threshold_factor = 0.1, method = 'mean'):
         """
         Description:
             Updates using all the obeservations using self.compute_weights and self.resample
@@ -347,11 +360,12 @@ class GlobalSamplingUPF(ParticleFilter):
             self.weights
         """
         for observation in observations:
-            self.compute_sigma_pts()
             self.compute_weights(observation = observation)
-            # self.resample(threshold_factor = threshold_factor)
+            self.resample(threshold_factor = threshold_factor)
             if method is not None:
                 self.compute_trajectory(method = method)
+            self.compute_sigma_pts()
+            self.current_time += 1
         return self.weights
 
 

@@ -565,8 +565,8 @@ class GaussianErrorModel(MarkovChain):
         self.mu = mu if mu is not None else np.zeros(self.dimension)
         self.G = G if G is not None else np.identity(self.dimension)
         self.sigma = sigma
-        # the function f defining the dynamics, takes two arguments x and process noise
-        self.func = lambda x, noise: self.f(x) + np.dot(self.G, noise)
+        # the function f defining the dynamics, takes 3 arguments time, x and process noise
+        self.func = lambda k, x, noise: self.f(x) + np.dot(self.G, noise)
 
         # figure out simulation algorithm
         def algorithm(past):
@@ -601,8 +601,8 @@ class GaussianObservationModel(SPConditional):
         self.mu = mu if mu is not None else np.zeros(self.dimension)
         self.G = G if G is not None else np.identity(self.dimension)
         self.sigma = sigma
-        # function f defining the relationship between hidden state and observation, takes two arguments x and measurement noise
-        self.func = lambda x, noise: self.f(x) + np.dot(self.G, noise)
+        # function f defining the relationship between hidden state and observation, takes 3 arguments time,  x and measurement noise
+        self.func = lambda k, x, noise: self.f(x) + np.dot(self.G, noise)
 
         # figure out simulation algorithm
         def algorithm(condition):
@@ -628,7 +628,7 @@ class DynamicModel(MarkovChain):
         Args:
             size: number of random variables in the chain
             prior: Simulation object for the first random variable in the chain
-            func: the function f defining the dynamics, takes two arguments x and process noise
+            func: the function f defining the dynamics, takes 3 arguments time, x and process noise
             sigma: covariance matrix of z, a d-dimensional normal random variable as described in the model
             conditional_pdf: a function of form p(x, condition) = p(x_k|x_(k-1))
         """
@@ -654,7 +654,7 @@ class Measurement_model(SPConditional):
         """
         Args:
             size: number of random variables in the chain
-            func: function f defining the relationship between hidden state and observation, takes two arguments x and measurement noise
+            func: function f defining the relationship between hidden state and observation, takes 3 arguments time, x and measurement noise
             sigma: covariance matrix of z, a d-dimensional normal random variable as described in the model
             conditional_pdf: a function of form p(y, condition) = p(y_k|x_k))
         """

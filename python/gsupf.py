@@ -14,7 +14,7 @@ for a problem with known solution
 A 2D problem with known solution
 """
 d = 2
-s = 10
+s = 100
 mu = np.zeros(2)
 id = np.identity(d)
 # Create a Markov chain

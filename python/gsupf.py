@@ -69,17 +69,17 @@ actual_density, actual_cdf, mean, cov = filering_dist(mu, id, observed_path[1:])
 """
 Solution using a gsupf
 """
-pf = fl.GlobalSamplingUPF(model, particle_count = 300, alpha = 1, kappa = 2, beta = 0)
+pf = fl.GlobalSamplingUPF(model, particle_count = 1000, alpha = 1, kappa = 2, beta = 2)
 
 pf.update(observed_path , threshold_factor = 0.1, method = 'mean')
-"""
+
+
 samples = pf.particles
 print("\n\n########## Total Variation ###########\n{}\n#########################################\n\n".format(ut.TV_dist_MC(actual_density, pf.filtering_pdf, pf.particles)))
-"""
+
 
 m = np.average(pf.particles, weights = pf.weights, axis = 0)
-print(m, mu)
-print(len(pf.particles))
+print("\n\n Mean distance {}\n\n".format(np.linalg.norm(m-mean)))
 # plot.SignalPlotter(signals = [hidden_path, observed_path]).plot_signals(coords_to_plot = [0], show = True)
 plt.scatter(*zip(*pf.particles))
 plt.scatter([m[0]], [m[1]], color = 'red')

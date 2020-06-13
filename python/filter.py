@@ -153,7 +153,7 @@ class ParticleFilter():
         if 1.0/(self.weights**2).sum() < threshold_factor*self.particle_count:
             indices = np.random.choice(self.particle_count, self.particle_count, p = self.weights)
             u = self.systematic_resample()#np.take(a = self.particles, indices = indices, axis = 0)
-            print("\n\n$$$$$$$$$$$$$$$$$$$$$ Num particles = {} $$$$$$$$$$$$$$$$$$$$\n\n".format(u))
+            print("\n\n Num particles = {} \n\n".format(u))
             #print("resampled weights:", self.weights.sum(), np.max(self.weights))
             # create weight map for faster computation
             """
@@ -258,8 +258,8 @@ class GlobalSamplingUPF(ParticleFilter):
         self.sigma_weights_c = np.copy(self.sigma_weights_m)
         self.sigma_weights_c[0] = self.sigma_weights_m[0] + (1.0 - self.alpha**2 + self.beta)
 
-        print("\n\nweights_c\n=====================\n{}\n".format(self.sigma_weights_c))
-        print("\n\nweights_m\n=====================\n{}\n".format(self.sigma_weights_m))
+        #print("\n\nweights_c\n=====================\n{}\n".format(self.sigma_weights_c))
+        #print("\n\nweights_m\n=====================\n{}\n".format(self.sigma_weights_m))
 
 
     def compute_sigma_pts(self):
@@ -352,7 +352,15 @@ class GlobalSamplingUPF(ParticleFilter):
     def mcmc(self, observation):
         new_particles = []
         for i, x in enumerate(self.particles):
-            while True:
+            new_particles.append(x)
+            prob1 = self.model.hidden_state.conditional_pdf(x, self.prev_particles[i])
+            prob2 = self.model.observation.conditional_pdf(observation, x)
+            prob3 = scipy.stats.multivariate_normal.pdf(x, mean = self.importance_mean, cov = self.importance_cov)
+            q = prob1*prob2/prob3
+
+            attempts = 0
+            while True and attempts < 10:
+                attempts += 1
                 print("\n\nimp_mean\n=====================\n{} {} {}\n".format(self.importance_mean, self.current_time, i))
                 print("\n\nimp_cov\n=====================\n{}\n".format(self.importance_cov))
                 sample  = np.random.multivariate_normal(mean = self.importance_mean, cov = self.importance_cov)
@@ -360,18 +368,15 @@ class GlobalSamplingUPF(ParticleFilter):
                 prob2 = self.model.observation.conditional_pdf(observation, sample)
                 prob3 = scipy.stats.multivariate_normal.pdf(sample, mean = self.importance_mean, cov = self.importance_cov)
                 p = prob1*prob2/prob3
-                prob1 = self.model.hidden_state.conditional_pdf(x, self.prev_particles[i])
-                prob2 = self.model.observation.conditional_pdf(observation, x)
-                prob3 = scipy.stats.multivariate_normal.pdf(sample, mean = self.importance_mean, cov = self.importance_cov)
-                q = prob1*prob2/prob3
                 if np.random.random() <= min((1.0, p/q)):
-                    new_particles.append(sample)
-                    self.weights[i] = p
+                    new_particles[i] = sample
+                    #self.weights[i] = p
                     break
-        self.particles = np.array(new_particles)
-        self.weights /= self.weights.sum()
 
-    def update(self, observations, threshold_factor = 0.1, method = 'mean'):
+        self.particles = np.array(new_particles)
+        #self.weights /= self.weights.sum()
+
+    def update(self, observations, threshold_factor = 0.1, method = 'mean', mcmc = False):
         """
         Description:
             Updates using all the obeservations using self.compute_weights and self.resample
@@ -383,8 +388,8 @@ class GlobalSamplingUPF(ParticleFilter):
         """
         for observation in observations:
             self.compute_weights(observation = observation)
-            self.resample(threshold_factor = threshold_factor)
-            if self.current_time > 0:
+            self.resample(threshold_factor = 1.0)
+            if mcmc is True:
                 self.mcmc(observation = observation)
             if method is not None:
                 self.compute_trajectory(method = method)

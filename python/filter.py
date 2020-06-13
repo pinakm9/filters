@@ -204,7 +204,8 @@ class ParticleFilter():
         Returns:
             self.weights
         """
-        for observation in observations:
+        self.observed_path = observations
+        for observation in self.observed_path:
             self.compute_weights(observation = observation)
             self.resample(threshold_factor = threshold_factor)
             if method is not None:
@@ -221,12 +222,11 @@ class ParticleFilter():
         return np.linalg.norm(error), np.mean(error, axis = 0), np.std(error, axis = 0)
 
 
-    def ecdf(self, x):
-        result = 0.0
-        for i in range(self.particle_count):
-            result += self.weights[i]*np.prod(x > self.particles[i])
-        return result
-
+    def plot_trajectories(self, hidden_path, coords_to_plot, show = False, save = False, file_path = None, title = None):
+        self.hidden_path = hidden_path
+        plot.SignalPlotter(signals = [self.hidden_path, self.observed_path, self.computed_trajectory])\
+            .plot_signals(labels = ['hidden', 'observed', 'computed'], styles = [{'linestyle':'solid'}, {'marker':'x'}, {'marker':'o'}],\
+            colors = ['black', 'blue', 'red'], coords_to_plot = coords_to_plot, show = show, save = save, file_path = file_path, title = title)
 
 
 class GlobalSamplingUPF(ParticleFilter):
@@ -386,9 +386,10 @@ class GlobalSamplingUPF(ParticleFilter):
         Returns:
             self.weights
         """
-        for observation in observations:
+        self.observed_path = observations
+        for observation in self.observed_path:
             self.compute_weights(observation = observation)
-            self.resample(threshold_factor = 1.0)
+            self.resample(threshold_factor = threshold_factor)
             if mcmc is True:
                 self.mcmc(observation = observation)
             if method is not None:

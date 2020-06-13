@@ -40,7 +40,9 @@ class SignalPlotter(object):
         else:
             self.dimension = dimension
 
-    def plot_signals(self, labels = [], line_styles = ['solid', 'dotted', 'dashed'],  max_pts = 100, fig_size = (7,6), time_unit = 'second', coords_to_plot = [],\
+    def plot_signals(self, labels = [], styles = [{'linestyle':'solid'}, {'marker':'o'}, {'marker':'^'}],\
+                    plt_fns = ['plot', 'scatter', 'scatter'],  colors = ['red', 'green', 'blue'],\
+                    max_pts = 100, fig_size = (7,6), time_unit = 'second', coords_to_plot = [],\
                     show = False, save = False, file_path = None, title = None):
         """
         Description:
@@ -48,7 +50,7 @@ class SignalPlotter(object):
 
         Args:
             labels: identifiers for the signals
-            line_styles: line styles for signals
+            styles: line styles for signals
             max_pts: Maximum number of points (default = 100) to be plotted for each signal
             fig_size: size of the plot as a tuple (unit of length as in matplotlib standard)
             time_unit: unit of time to be displayed in x-label for 1-dimensional problems
@@ -60,11 +62,15 @@ class SignalPlotter(object):
         # prepare a figure
         fig = plt.figure(figsize = fig_size)
 
-        # fix line_styles and labels if its length is not adequate
-        if len(self.signals) > len(line_styles):
-            line_styles += ['solid']*(len(self.signals) - len(line_styles))
+        # fix styles, labels, plt_fns and colors if their lengths are not adequate
+        if len(self.signals) > len(styles):
+            styles += [{'marker': 'x'}]*(len(self.signals) - len(styles))
         if len(self.signals) > len(labels):
             labels += ['']*(len(self.signals) - len(labels))
+        if len(self.signals) > len(plt_fns):
+            plt_fns += ['scatter']*(len(self.signals) - len(plt_fns))
+        if len(self.signals) > len(colors):
+            colors += ['blue']*(len(self.signals) - len(colors))
 
         # plot self.signals against time
         if self.dimension == 1 and coords_to_plot == []:
@@ -72,7 +78,7 @@ class SignalPlotter(object):
             t = np.linspace(self.start_time, self.start_time + (len(self.signals[0])-1)*self.time_step, num = min(max_pts, len(self.signals[0])))
             for i, signal in enumerate(self.signals):
                 signal = ut.Picker(signal).equidistant(objs_to_pick = max_pts)
-                ax.plot(t, signal, label = labels[i], linestyle = line_styles[i])
+                getattr(ax, plt_fns[i])(t, signal, label = labels[i], color = colors[i], **styles[i])
             ax.set(xlabel = 'time({})'.format(time_unit))
             ax.legend()
 
@@ -81,7 +87,7 @@ class SignalPlotter(object):
             ax = fig.add_subplot(111)
             for i, signal in enumerate(self.signals):
                 signal = ut.Picker(signal).equidistant(objs_to_pick = max_pts)
-                ax.plot(signal[:, 0], signal[:, 1], label = labels[i], linestyle = line_styles[i])
+                getattr(ax, plt_fns[i])(signal[:, 0], signal[:, 1], label = labels[i], color = colors[i], **styles[i])
             ax.legend()
 
         # plot all coordinatres of the self.signals together, time is not shown
@@ -89,19 +95,18 @@ class SignalPlotter(object):
             ax = fig.add_subplot(111, projection='3d')
             for i, signal in enumerate(self.signals):
                 signal = ut.Picker(signal).equidistant(objs_to_pick = max_pts)
-                ax.plot3D(signal[:, 0], signal[:, 1], signal[:, 2], label = labels[i], linestyle = line_styles[i])
+                getattr(ax, plt_fns[i])(signal[:, 0], signal[:, 1], signal[:, 2], label = labels[i], color = colors[i], **styles[i])
             ax.legend()
 
         # plot the required coordinates separately against time
         elif self.dimension > 3 or coords_to_plot != []:
             ax, num_rows = [], len(coords_to_plot)
             t = np.linspace(self.start_time, self.start_time + (len(self.signals[0])-1)*self.time_step, min(max_pts, len(self.signals[0])))
-
             for i in range(num_rows):
                 ax.append(fig.add_subplot(num_rows, 1, i+1))
                 for j, signal in enumerate(self.signals):
                     signal = ut.Picker(signal[:, coords_to_plot[i]]).equidistant(objs_to_pick = max_pts)
-                    ax[i].plot(t, signal, label = labels[j], linestyle = line_styles[j])
+                    getattr(ax[i], plt_fns[j])(t, signal, label = labels[j], color = colors[j], **styles[j])
                     ax[i].set(ylabel = 'dimension {}'.format(coords_to_plot[i] + 1))
                     ax[i].yaxis.set_label_position('right')
                 ax[i].legend()

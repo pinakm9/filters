@@ -26,7 +26,7 @@ mc = sm.GaussianErrorModel(size = s, prior = prior, f = f, sigma = id)
 
 # Define the observation model
 f = lambda x: x
-om = sm.GaussianObservationModel(size = s, f = f, sigma = 0.1*id)
+om = sm.GaussianObservationModel(size = s, f = f, sigma = 1*id)
 
 # create a ModelPF object to feed the filter / combine the models
 model = fl.ModelPF(dynamic_model = mc, measurement_model = om)
@@ -69,7 +69,7 @@ actual_density, actual_cdf, mean, cov = filering_dist(mu, id, observed_path[1:])
 """
 Solution using a gsupf
 """
-pf = fl.GlobalSamplingUPF(model, particle_count = 1000, alpha = 1, kappa = 2, beta = 0)
+pf = fl.GlobalSamplingUPF(model, particle_count = 300, alpha = 1, kappa = 2, beta = 0)
 
 pf.update(observed_path , threshold_factor = 0.1, method = 'mean')
 """
@@ -88,3 +88,5 @@ plt.show()
 print(pf.computed_trajectory)
 print(np.shape(pf.computed_trajectory))
 plot.SignalPlotter(signals = [ hidden_path, pf.computed_trajectory]).plot_signals( labels = [ 'actual', 'computed'], coords_to_plot = [0], show = True)
+
+plot.SignalPlotter(signals = [ hidden_path, observed_path]).plot_signals( labels = [ 'actual', 'observed'], coords_to_plot = [0], show = True)

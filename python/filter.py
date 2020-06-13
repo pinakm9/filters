@@ -263,13 +263,6 @@ class GlobalSamplingUPF(ParticleFilter):
 
 
     def compute_sigma_pts(self):
-        # compute mean and variance of the particles
-        self.importance_mean = np.average(self.particles, weights = self.weights, axis = 0)
-        self.importance_cov = np.zeros((self.dimension, self.dimension))
-
-        for i, x in enumerate(self.particles):
-            x_ = x - self.importance_mean
-            self.importance_cov += self.weights[i]*np.outer(x_, x_)
 
         # construct augmented mean and covariance
         aug_mean  = np.concatenate((self.importance_mean, np.zeros(np.shape(self.process_noise_cov)[0]), np.zeros(np.shape(self.process_noise_cov)[0])))
@@ -342,21 +335,41 @@ class GlobalSamplingUPF(ParticleFilter):
             self.particles = new_particles
         else:
             self.particles = self.model.hidden_state.sims[0].generate(self.particle_count)
+            self.prev_particles = np.copy(self.particles)
             self.weights = np.array([self.model.hidden_state.sims[0].rv.pdf(x) for x in self.particles])
             #print("\n\nweights\n=====================\n{}\n".format(self.weights))
 
         # normalize weights
         self.weights /= self.weights.sum()
+        # compute mean and variance of the particles
+        self.importance_mean = np.average(self.particles, weights = self.weights, axis = 0)
+        self.importance_cov = np.zeros((self.dimension, self.dimension))
+        for i, x in enumerate(self.particles):
+            x_ = x - self.importance_mean
+            self.importance_cov += self.weights[i]*np.outer(x_, x_)
+
 
     def mcmc(self, observation):
         new_particles = []
-        for x in self.particles:
+        for i, x in enumerate(self.particles):
             while True:
+                print("\n\nimp_mean\n=====================\n{} {} {}\n".format(self.importance_mean, self.current_time, i))
+                print("\n\nimp_cov\n=====================\n{}\n".format(self.importance_cov))
                 sample  = np.random.multivariate_normal(mean = self.importance_mean, cov = self.importance_cov)
                 prob1 = self.model.hidden_state.conditional_pdf(sample, self.prev_particles[i])
-                prob2 = self.model.observation.conditional_pdf(observation, self.particles[i])
+                prob2 = self.model.observation.conditional_pdf(observation, sample)
                 prob3 = scipy.stats.multivariate_normal.pdf(sample, mean = self.importance_mean, cov = self.importance_cov)
-
+                p = prob1*prob2/prob3
+                prob1 = self.model.hidden_state.conditional_pdf(x, self.prev_particles[i])
+                prob2 = self.model.observation.conditional_pdf(observation, x)
+                prob3 = scipy.stats.multivariate_normal.pdf(sample, mean = self.importance_mean, cov = self.importance_cov)
+                q = prob1*prob2/prob3
+                if np.random.random() <= min((1.0, p/q)):
+                    new_particles.append(sample)
+                    self.weights[i] = p
+                    break
+        self.particles = np.array(new_particles)
+        self.weights /= self.weights.sum()
 
     def update(self, observations, threshold_factor = 0.1, method = 'mean'):
         """
@@ -371,6 +384,8 @@ class GlobalSamplingUPF(ParticleFilter):
         for observation in observations:
             self.compute_weights(observation = observation)
             self.resample(threshold_factor = threshold_factor)
+            if self.current_time > 0:
+                self.mcmc(observation = observation)
             if method is not None:
                 self.compute_trajectory(method = method)
             self.compute_sigma_pts()

@@ -196,7 +196,7 @@ class ParticleFilter():
             self.computed_trajectory = np.append(self.computed_trajectory, [new_hidden_state], axis = 0)
         return self.computed_trajectory
 
-    def update(self, observations, threshold_factor = 0.5, method = 'mean'):
+    def update(self, observations, threshold_factor = 0.1, method = 'mean'):
         """
         Description:
             Updates using all the obeservations using self.compute_weights and self.resample
@@ -237,15 +237,15 @@ class GlobalSamplingUPF(ParticleFilter):
          Parent class: ParticleFilter
     Attributes (extra):
     """
-    def __init__(self, model, particle_count, process_noise_cov, measurement_noise_cov, alpha = 0.1, beta = 2.0, kappa = 0.0, save_trajectories = False):
+    def __init__(self, model, particle_count, alpha = 0.1, beta = 2.0, kappa = 0.0, save_trajectories = False):
         # Construct necessary attributes from parent class
-        super().__init__(model, particle_count, importance_pdf, save_trajectories)
+        super().__init__(model, particle_count, save_trajectories)
 
         # Sample particles from the prior
-        self.process_noise_cov = process_noise_cov
-        self.measurement_noise_cov = measurement_noise_cov
+        self.process_noise_cov = self.model.hidden_state.sigma
+        self.measurement_noise_cov = self.model.observation.sigma
         self.particles = self.model.hidden_state.sims[0].generate(self.particle_count)
-        self.weights = np.array([self.model.hidden_state.sims[0].target_rv.pdf(x) for x in self.particles])
+        self.weights = np.array([self.model.hidden_state.sims[0].rv.pdf(x) for x in self.particles])
         self.weights /= self.weights.sum()
 
         # parameters for the filter
@@ -253,14 +253,17 @@ class GlobalSamplingUPF(ParticleFilter):
         self.beta = beta
         self.kappa = kappa
         self.aug_dimension = self.dimension + np.shape(self.process_noise_cov)[0] + np.shape(self.process_noise_cov)[0]
-        self.lam = alpha**2(self.aug_dimension + kappa) - self.aug_dimension
+        self.lam = (alpha**2)*(self.aug_dimension + kappa) - self.aug_dimension
 
         # memory allocation for sigma points and weights
         self.sigma_pts = np.zeros((2*self.aug_dimension + 1, self.aug_dimension))
-        self.sigma_weights_m = (0.5/(self.dimension + self.kappa))*np.zeros(2*self.aug_dimension + 1)
-        self.sigma_weights_m[0] *= (2*self.kappa)
-        self.sigma_weights_c = (0.5/(self.dimension + self.kappa))*np.zeros(2*self.aug_dimension + 1)
+        self.sigma_weights_m = (0.5/(self.dimension + self.lam))*np.ones(2*self.aug_dimension + 1)
+        self.sigma_weights_m[0] *= (2*self.lam)
+        self.sigma_weights_c = (0.5/(self.dimension + self.lam))*np.ones(2*self.aug_dimension + 1)
         self.sigma_weights_c[0] = self.sigma_weights_m[0] + (1.0 - self.alpha**2 + self.beta)
+
+        print("\n\nweights_c\n=====================\n{}\n".format(self.sigma_weights_c))
+        print("\n\nweights_m\n=====================\n{}\n".format(self.sigma_weights_m))
 
     def compute_sigma_pts(self):
         # compute mean and variance of the particles
@@ -276,7 +279,7 @@ class GlobalSamplingUPF(ParticleFilter):
         aug_cov = scipy.linalg.block_diag(self.importance_cov, self.process_noise_cov, self.measurement_noise_cov)
 
         # compute sigma points
-        root_matrix = np.linalg.sqrtm((self.aug_dimension + self.lam)*aug_cov)
+        root_matrix = scipy.linalg.sqrtm((self.aug_dimension + self.lam)*aug_cov)
         self.sigma_pts[0] = aug_mean
         for i, column in enumerate(root_matrix):
             self.sigma_pts[2*i + 1] = aug_mean + column
@@ -287,12 +290,12 @@ class GlobalSamplingUPF(ParticleFilter):
         chi = np.zeros((2*self.aug_dimension + 1, self.dimension))
         gamma = np.zeros((2*self.aug_dimension + 1, self.dimension))
 
-        for pt in self.sigma_pts:
+        for i, pt in enumerate(self.sigma_pts):
             x = pt[ : self.dimension]
-            process_noise = pt[self.dimension : self.dimension + self.np.shape(self.process_noise_cov)[0]]
-            measurement_noise = pt[self.dimension + self.np.shape(self.process_noise_cov)[0] : ]
-            chi[i] = self.model.dynamic_model.func(x, process_noise)
-            gamma[i] = self.model.measurement_model.func(chi[i], measurement_noise)
+            process_noise = pt[self.dimension : self.dimension + np.shape(self.process_noise_cov)[0]]
+            measurement_noise = pt[self.dimension + np.shape(self.process_noise_cov)[0] : ]
+            chi[i] = self.model.hidden_state.func(x, process_noise)
+            gamma[i] = self.model.observation.func(chi[i], measurement_noise)
 
         mean_chi = np.dot(self.sigma_weights_m, chi)
         mean_gamma = np.dot(self.sigma_weights_m, gamma)
@@ -311,10 +314,15 @@ class GlobalSamplingUPF(ParticleFilter):
 
             P_xy += self.sigma_weights_c[i] * np.outer(vec1, vec2)
 
+        print("\n\nP_yy\n=====================\n{}\n".format(P_yy))
+
         # Compute Kalman gain and importance mean and variance
         K = np.dot(P_xy, np.linalg.inv(P_yy))
         mean = mean_chi + np.dot(K, observation - mean_gamma)
         cov = P_xx - np.linalg.multi_dot([K, P_yy, K.T])
+
+        print("\n\ncovariance\n=====================\n{}\n".format(cov))
+        print("\n\ncovariance eigenvalues\n=====================\n{}\n".format(np.linalg.eig(cov)[0]))
 
         # Sample new particles and compute weights
         new_particles = np.random.multivariate_normal(mean, cov, size = self.particle_count)
@@ -325,12 +333,26 @@ class GlobalSamplingUPF(ParticleFilter):
             self.weights[i] *= (prob1*prob2/prob3)
 
         self.particles = new_particles
-        self.weights /= self.weights.sum() 
+        self.weights /= self.weights.sum()
 
 
-
-
-
+    def update(self, observations, threshold_factor = 0.0, method = 'mean'):
+        """
+        Description:
+            Updates using all the obeservations using self.compute_weights and self.resample
+        Args:
+            observations: list/np.array of observations to pass to self.compute_weights
+            threshold_factor: fraction of self.particle_count which the effective particle count has to surpass in order to stop resampling
+        Returns:
+            self.weights
+        """
+        for observation in observations:
+            self.compute_sigma_pts()
+            self.compute_weights(observation = observation)
+            # self.resample(threshold_factor = threshold_factor)
+            if method is not None:
+                self.compute_trajectory(method = method)
+        return self.weights
 
 
 

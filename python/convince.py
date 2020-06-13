@@ -6,24 +6,23 @@ import utility as ut
 import matplotlib.pyplot as plt
 import plot
 """
- Goal: To compute the distance between the actual filtering distribution and the one given by particle filter
- for a problem with known solution
+Goal: To compute the distance between the actual filtering distribution and the one given by particle filter
+for a problem with known solution
 """
 
 """
 A 2D problem with known solution
 """
 s = 100
+id = np.identity(2)
 # Create a Markov chain
-prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(np.array([0.,0.]), np.diag([1.,1.])))
+prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(np.array([0.,0.]), id))
 f = lambda x: x
-G = np.identity(2)
-mc = sm.GaussianErrorModel(size = s, prior = prior, f = f, G = G, mu = np.array([0.,0.]), sigma = np.diag([1., 1.]))
+mc = sm.GaussianErrorModel(size = s, prior = prior, f = f, sigma = id)
 
 # Define the observation model
 f = lambda x: x
-G = np.identity(2)
-om = sm.GaussianObservationModel(size = s, f = f, G = G, mu = np.array([0.,0.]), sigma = 1*np.diag([1., 1.]))
+om = sm.GaussianObservationModel(size = s, f = f, sigma = id)
 
 # create a ModelPF object to feed the filter / combine the models
 model = fl.ModelPF(dynamic_model = mc, measurement_model = om)
@@ -31,6 +30,7 @@ model = fl.ModelPF(dynamic_model = mc, measurement_model = om)
 # Generate paths
 hidden_path = model.hidden_state.generate_path()
 observed_path = model.observation.generate_path(hidden_path)
+
 """
 pltr = plot.SignalPlotter([hidden_path, observed_path])
 pltr.plot_signals(labels=[], coords_to_plot = [1], show = True)
@@ -65,13 +65,13 @@ def filering_dist(m, P, Y):
     m_, P_ = n_step_predict_update(m, P, Y)
     return lambda x: multivariate_normal.pdf(x, mean = m_, cov  = P_), lambda x: multivariate_normal.cdf(x, mean = m_, cov  = P_), m_, P_
 
-actual_density, actual_cdf, mean, cov = filering_dist(np.array([0.,0.]), np.diag([1.,1.]), observed_path)
+actual_density, actual_cdf, mean, cov = filering_dist(np.array([0.,0.]), np.diag([1.,1.]), observed_path[1:])
 
 
 """
 Solution using a particle filter
 """
-pf = fl.ParticleFilter(model, particle_count = 500)
+pf = fl.ParticleFilter(model, particle_count = 100)
 pf.update(observed_path[0:], threshold_factor = 0.0, method = 'mean')
 
 samples = pf.particles
@@ -95,4 +95,4 @@ plt.scatter(*zip(*pf.particles))
 plt.scatter([m[0]], [m[1]], color = 'red')
 plt.scatter([mean[0]], [mean[1]], color = 'green')
 plt.show()
-plot.SignalPlotter(signals = [ pf.computed_trajectory, hidden_path]).plot_signals( labels = ['computed', 'actual'], coords_to_plot = [0], show = True)
+plot.SignalPlotter(signals = [pf.computed_trajectory, hidden_path]).plot_signals( labels = ['computed', 'actual'], coords_to_plot = [0], show = True)

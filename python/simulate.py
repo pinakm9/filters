@@ -39,11 +39,11 @@ class RVContinuous(object):
         set_unset_stats: sets only unset statistics of the distribution using self.set_stats
     """
 
-    def __init__(self, name = 'unknown', support = (0.0, 1.0), cdf = None, pdf = None, find_mean = None, find_var = None, **params):
+    def __init__(self, name = 'unknown', support = (-np.inf, np.inf), cdf = None, pdf = None, find_mean = None, find_var = None, **params):
         """
         Args:
             name: name of the random variable
-            support: support of the pdf, default = (0.0, 1.0)
+            support: support of the pdf, default = (-np.inf, np.inf)
             find_mean: custom function for computing mean, accpets parameters of the distribution as **kwargs
             find_var: custom function for computing variance, accpets parameters of the distribution as **kwargs
             params: dict of keyword arguments that are passed to pdf, cdf and inv_cdf
@@ -57,8 +57,11 @@ class RVContinuous(object):
         # set support and pdf/cdf for known distributions
         if name == 'gamma':
             support = (0.0, np.inf)
-            cdf = lambda x, shape, scale: scipy.stats.gamma.cdf(x, shape, scale = scale)
-            pdf = lambda x, shape, scale: scipy.stats.gamma.pdf(x, shape, scale = scale)
+            cdf = lambda x, shape, scale: scipy.stats.gamma.cdf(x, shape = shape, scale = scale)
+            pdf = lambda x, shape, scale: scipy.stats.gamma.pdf(x, shape = shape, scale = scale)
+        elif name == 'normal':
+            cdf = lambda x, mean, cov: scipy.stats.multivariate_normal.cdf(x, mean = mean, cov = cov)
+            pdf = lambda x, mean, cov: scipy.stats.multivariate_normal.pdf(x, mean = mean, cov = cov)
 
         # assign basic attributes
         self.name = name # name of the random variable
@@ -546,7 +549,7 @@ class GaussianErrorModel(MarkovChain):
         f is a function R^d -> R^d and G is a dxd matrix and z ~ N(mu, sigma)
         Parent class: MarkovChain
     """
-    def __init__(self, size, prior, f, G, mu, sigma):
+    def __init__(self, size, prior, f, sigma, G = None, mu = None):
         """
         Args:
             size: number of random variables in the chain
@@ -558,17 +561,20 @@ class GaussianErrorModel(MarkovChain):
         """
         # set parameters for the model
         self.f = f
-        self.G = G
-        self.mu = mu
+        self.dimension = np.shape(sigma)[0]
+        self.mu = mu if mu is not None else np.zeros(self.dimension)
+        self.G = G if G is not None else np.identity(self.dimension)
         self.sigma = sigma
+        # the function f defining the dynamics, takes two arguments x and process noise
+        self.func = lambda x, noise: self.f(x) + np.dot(self.G, noise)
 
         # figure out simulation algorithm
         def algorithm(past):
-            return self.f(past) + np.dot(self.G, np.random.multivariate_normal(mu, sigma))
+            return self.f(past) + np.dot(self.G, np.random.multivariate_normal(self.mu, self.sigma))
 
         # compute the conditional_pdf
-        self.error_mean = np.dot(G, mu)
-        self.error_cov = np.linalg.multi_dot([G, sigma, G.T])
+        self.error_mean = np.dot(self.G, self.mu)
+        self.error_cov = np.linalg.multi_dot([self.G, self.sigma, self.G.T])
         conditional_pdf = lambda x, condition: scipy.stats.multivariate_normal.pdf(x, mean = f(condition) + self.error_mean, cov = self.error_cov)
 
         super().__init__(size = size, prior = prior, algorithm = algorithm, conditional_pdf = conditional_pdf)
@@ -580,11 +586,10 @@ class GaussianObservationModel(SPConditional):
         f is a function R^d -> R^d and G is a dxd matrix and z ~ N(mu, sigma)
         Parent class: SPConditional
     """
-    def __init__(self, size, f, G, mu, sigma):
+    def __init__(self, size, f, sigma, G = None, mu = None):
         """
         Args:
             size: number of random variables in the chain
-            prior: Simulation object for the first random variable in the chain
             f: a function from R^d -> R^d as described in the model
             G: a numpy square matrix as described in the model
             mu: mean of z, a d-dimensional normal random variable as described in the model
@@ -592,17 +597,20 @@ class GaussianObservationModel(SPConditional):
         """
         # set parameters for the model
         self.f = f
-        self.G = G
-        self.mu = mu
+        self.dimension = np.shape(sigma)[0]
+        self.mu = mu if mu is not None else np.zeros(self.dimension)
+        self.G = G if G is not None else np.identity(self.dimension)
         self.sigma = sigma
+        # function f defining the relationship between hidden state and observation, takes two arguments x and measurement noise
+        self.func = lambda x, noise: self.f(x) + np.dot(self.G, noise)
 
         # figure out simulation algorithm
         def algorithm(condition):
-            return self.f(condition) + np.dot(self.G, np.random.multivariate_normal(mu, sigma))
+            return self.f(condition) + np.dot(self.G, np.random.multivariate_normal(self.mu, self.sigma))
 
         # compute the conditional_pdf
-        self.error_mean = np.dot(G, mu)
-        self.error_cov = np.dot(np.dot(G, sigma), G.T)
+        self.error_mean = np.dot(self.G, self.mu)
+        self.error_cov = np.dot(np.dot(self.G, self.sigma), self.G.T)
         conditional_pdf = lambda y, condition: scipy.stats.multivariate_normal.pdf(y, mean = f(condition) + self.error_mean, cov = self.error_cov)
 
         super().__init__(size = size, algorithm = algorithm, conditional_pdf = conditional_pdf)
@@ -615,28 +623,49 @@ class DynamicModel(MarkovChain):
         z ~ N(0, sigma)
         Parent class: MarkovChain
     """
-    def __init__(self, size, prior, f, G, mu, sigma):
+    def __init__(self, size, prior, func, sigma, conditional_pdf):
         """
         Args:
             size: number of random variables in the chain
             prior: Simulation object for the first random variable in the chain
-            f: a function from R^d -> R^d as described in the model
-            G: a numpy square matrix as described in the model
-            mu: mean of z, a d-dimensional normal random variable as described in the model
+            func: the function f defining the dynamics, takes two arguments x and process noise
             sigma: covariance matrix of z, a d-dimensional normal random variable as described in the model
+            conditional_pdf: a function of form p(x, condition) = p(x_k|x_(k-1))
         """
         # set parameters for the model
-        self.f = f
-        self.mu = mu
+        self.func = func
         self.sigma = sigma
-
+        self.dimension = np.shape(sigma)[0]
+        self.mu = np.zeros(self.dimension)
         # figure out simulation algorithm
         def algorithm(past):
-            return self.f(past) + np.dot(self.G, np.random.multivariate_normal(mu, sigma))
-
-        # compute the conditional_pdf
-        self.error_mean = np.dot(G, mu)
-        self.error_cov = np.linalg.multi_dot([G, sigma, G.T])
-        conditional_pdf = lambda x, condition: scipy.stats.multivariate_normal.pdf(x, mean = f(condition) + self.error_mean, cov = self.error_cov)
+            return self.f(past, np.random.multivariate_normal(self.mu, self.sigma))
 
         super().__init__(size = size, prior = prior, algorithm = algorithm, conditional_pdf = conditional_pdf)
+
+class Measurement_model(SPConditional):
+    """
+    Description:
+        This is a class for defining an SPConditional object of the form y_k = f(x_k, z)
+        and z ~ N(0, sigma)
+        Parent class: SPConditional
+    """
+    def __init__(self, size, func, sigma, conditional_pdf):
+        """
+        Args:
+            size: number of random variables in the chain
+            func: function f defining the relationship between hidden state and observation, takes two arguments x and measurement noise
+            sigma: covariance matrix of z, a d-dimensional normal random variable as described in the model
+            conditional_pdf: a function of form p(y, condition) = p(y_k|x_k))
+        """
+        # set parameters for the model
+        self.func = func
+        self.sigma = sigma
+        self.dimension = np.shape(sigma)[0]
+        self.mu = np.zeros(self.dimension)
+
+        # figure out simulation algorithm
+        def algorithm(condition):
+            return self.f(condition, np.random.multivariate_normal(self.mu, self.sigma))
+
+        super().__init__(size = size, algorithm = algorithm, conditional_pdf = conditional_pdf)

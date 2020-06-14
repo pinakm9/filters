@@ -666,7 +666,7 @@ class Measurement_model(SPConditional):
         self.sigma = sigma
         self.dimension = np.shape(sigma)[0]
         self.mu = np.zeros(self.dimension)
-        self.noise = noise
+        self.noise = noise_sim
 
         # figure out simulation algorithm
         def algorithm(k, condition):

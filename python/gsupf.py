@@ -16,7 +16,7 @@ observed_path = model.observation.generate_path(hidden_path)
 
 means, covs = model1.update(observed_path[1:])
 mu = means[-1]
-pf = fl.GlobalSamplingUPF(model, particle_count = 4000, alpha = 1, kappa = 2, beta = 2)
+pf = fl.GlobalSamplingUPF(model, particle_count = 1000, alpha = 1, kappa = 2, beta = 2)
 pf.update(observed_path , threshold_factor = 0.1, method = 'mean')
 mean = pf.computed_trajectory[-1]
 

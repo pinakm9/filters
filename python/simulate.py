@@ -303,7 +303,7 @@ class Simulation(object):
         # self.gamma = np.random.gamma # gamma distribution, needed for multiprocessing compatibility
         self.set_algorithm(algorithm, *args, **algorithm_args)
 
-    def generate(self, sample_size, *args):
+    def generate(self, sample_size = 1, *args):
         """
         Description:
             Generates a batch of samples using self.algorithm
@@ -314,8 +314,8 @@ class Simulation(object):
         """
         self.size = sample_size # number of samples to be collected
         self.samples = np.array([self.algorithm(*args) for i in range(self.size)]) # container for the collected samples
-        self.mean = np.mean(self.samples)
-        self.var = np.var(self.samples, ddof = 1) # unbiased estimator
+        # self.mean = np.mean(self.samples)
+        # self.var = np.var(self.samples, ddof = 1) # unbiased estimator
         return self.samples
 
     def compare(self, file_path = None, display = True, target_cdf_pts = 100):
@@ -479,7 +479,7 @@ class MarkovChain(StochasticProcess):
         Args:
             size: number of random variables in the chain
             prior: Simulation object for the first random variable in the chain
-            algorithm: algorithm for creating Simulation objects in the chain, accepts the previous simulation object in the chain as the argument 'past'
+            algorithm: algorithm for creating Simulation objects in the chain, first two args: time, past
             conditional_pdf: p(x_k|x_(k-1)), default = None, it's a function of type p(x, condition) (argument names can be anything)
             algorithm_args: dict of keyword arguments that are passed to algorithm
         """
@@ -487,7 +487,7 @@ class MarkovChain(StochasticProcess):
         self.algorithm_args = algorithm_args
         sims = [prior]
         for i in range(size - 1):
-            sims.append(Simulation(algorithm = algorithm, **self.algorithm_args))
+            sims.append(Simulation(algorithm = lambda *args: algorithm(i + 1, *args), **self.algorithm_args))
         super().__init__(sims)
 
     def generate_path(self, *args):
@@ -525,7 +525,7 @@ class SPConditional(StochasticProcess):
         self.algorithm_args = algorithm_args
         sims = []
         for i in range(size):
-            sims.append(Simulation(algorithm = algorithm, **self.algorithm_args))
+            sims.append(Simulation(algorithm = lambda *args: algorithm(i + 1, *args), **self.algorithm_args))
         super().__init__(sims)
 
     def generate_path(self, conditions):
@@ -569,13 +569,13 @@ class GaussianErrorModel(MarkovChain):
         self.func = lambda k, x, noise: self.f(x) + np.dot(self.G, noise)
 
         # figure out simulation algorithm
-        def algorithm(past):
+        def algorithm(k, past):
             return self.f(past) + np.dot(self.G, np.random.multivariate_normal(self.mu, self.sigma))
 
         # compute the conditional_pdf
         self.error_mean = np.dot(self.G, self.mu)
         self.error_cov = np.linalg.multi_dot([self.G, self.sigma, self.G.T])
-        conditional_pdf = lambda x, condition: scipy.stats.multivariate_normal.pdf(x, mean = f(condition) + self.error_mean, cov = self.error_cov)
+        conditional_pdf = lambda k, x, condition: scipy.stats.multivariate_normal.pdf(x, mean = f(condition) + self.error_mean, cov = self.error_cov)
 
         super().__init__(size = size, prior = prior, algorithm = algorithm, conditional_pdf = conditional_pdf)
 
@@ -605,13 +605,13 @@ class GaussianObservationModel(SPConditional):
         self.func = lambda k, x, noise: self.f(x) + np.dot(self.G, noise)
 
         # figure out simulation algorithm
-        def algorithm(condition):
+        def algorithm(k, condition):
             return self.f(condition) + np.dot(self.G, np.random.multivariate_normal(self.mu, self.sigma))
 
         # compute the conditional_pdf
         self.error_mean = np.dot(self.G, self.mu)
         self.error_cov = np.dot(np.dot(self.G, self.sigma), self.G.T)
-        conditional_pdf = lambda y, condition: scipy.stats.multivariate_normal.pdf(y, mean = f(condition) + self.error_mean, cov = self.error_cov)
+        conditional_pdf = lambda k, y, condition: scipy.stats.multivariate_normal.pdf(y, mean = f(condition) + self.error_mean, cov = self.error_cov)
 
         super().__init__(size = size, algorithm = algorithm, conditional_pdf = conditional_pdf)
 
@@ -620,16 +620,17 @@ class DynamicModel(MarkovChain):
     """
     Description:
         This is a class for defining a MarkovChain of the form x_k = f(x_(k-1), z)
-        z ~ N(0, sigma)
+        z ~ zero mean noise
         Parent class: MarkovChain
     """
-    def __init__(self, size, prior, func, sigma, conditional_pdf):
+    def __init__(self, size, prior, func, noise_sim, sigma, conditional_pdf):
         """
         Args:
             size: number of random variables in the chain
             prior: Simulation object for the first random variable in the chain
             func: the function f defining the dynamics, takes 3 arguments time, x and process noise
             sigma: covariance matrix of z, a d-dimensional normal random variable as described in the model
+            noise_sim: Simulation object for the process noise
             conditional_pdf: a function of form p(x, condition) = p(x_k|x_(k-1))
         """
         # set parameters for the model
@@ -637,9 +638,11 @@ class DynamicModel(MarkovChain):
         self.sigma = sigma
         self.dimension = np.shape(sigma)[0]
         self.mu = np.zeros(self.dimension)
+        self.noise = noise_sim
+
         # figure out simulation algorithm
-        def algorithm(past):
-            return self.f(past, np.random.multivariate_normal(self.mu, self.sigma))
+        def algorithm(k, past):
+            return self.func(k, past, self.noise.generate()[0])
 
         super().__init__(size = size, prior = prior, algorithm = algorithm, conditional_pdf = conditional_pdf)
 
@@ -647,10 +650,10 @@ class Measurement_model(SPConditional):
     """
     Description:
         This is a class for defining an SPConditional object of the form y_k = f(x_k, z)
-        and z ~ N(0, sigma)
+        and z ~ zero mean noise
         Parent class: SPConditional
     """
-    def __init__(self, size, func, sigma, conditional_pdf):
+    def __init__(self, size, func, noise_sim, sigma, conditional_pdf):
         """
         Args:
             size: number of random variables in the chain
@@ -663,9 +666,10 @@ class Measurement_model(SPConditional):
         self.sigma = sigma
         self.dimension = np.shape(sigma)[0]
         self.mu = np.zeros(self.dimension)
+        self.noise = noise
 
         # figure out simulation algorithm
-        def algorithm(condition):
-            return self.f(condition, np.random.multivariate_normal(self.mu, self.sigma))
+        def algorithm(k, condition):
+            return self.func(k, past, self.noise.generate()[0])
 
         super().__init__(size = size, algorithm = algorithm, conditional_pdf = conditional_pdf)

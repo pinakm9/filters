@@ -95,8 +95,8 @@ class ParticleFilter():
 
         # compute new weights
         for i in range(self.particle_count):
-            #prob1 = self.model.hidden_state.conditional_pdf(new_particles[i], self.particles[i])
-            prob2 = self.model.observation.conditional_pdf(observation, self.particles[i])
+            #prob1 = self.model.hidden_state.conditional_pdf(self.current_time, new_particles[i], self.particles[i])
+            prob2 = self.model.observation.conditional_pdf(self.current_time, observation, self.particles[i])
             #prob3 = self.importance_pdf(new_particles[i], self.particles[i])
             self.weights[i] *= prob2
         # print(self.weights.sum(), np.max(self.weights))
@@ -335,8 +335,8 @@ class GlobalSamplingUPF(ParticleFilter):
             # Sample new particles and compute weights
             new_particles = np.random.multivariate_normal(self.importance_mean, self.importance_cov, size = self.particle_count)
             for i, w in enumerate(self.weights):
-                prob1 = self.model.hidden_state.conditional_pdf(new_particles[i], self.particles[i])
-                prob2 = self.model.observation.conditional_pdf(observation, new_particles[i])
+                prob1 = self.model.hidden_state.conditional_pdf(self.current_time, new_particles[i], self.particles[i])
+                prob2 = self.model.observation.conditional_pdf(self.current_time, observation, new_particles[i])
                 prob3 = scipy.stats.multivariate_normal.pdf(new_particles[i], mean = self.importance_mean, cov = self.importance_cov)
                 self.weights[i] *= (prob1*prob2/prob3)
             self.prev_particles = self.particles
@@ -344,7 +344,7 @@ class GlobalSamplingUPF(ParticleFilter):
         else:
             self.particles = self.model.hidden_state.sims[0].generate(self.particle_count)
             self.prev_particles = np.copy(self.particles)
-            self.weights = np.array([self.model.observation.conditional_pdf(observation, x) for x in self.particles])
+            self.weights = np.array([self.model.observation.conditional_pdf(self.current_time, observation, x) for x in self.particles])
             #print("\n\nweights\n=====================\n{}\n".format(self.weights))
 
         # normalize weights
@@ -362,8 +362,8 @@ class GlobalSamplingUPF(ParticleFilter):
         new_particles = []
         for i, x in enumerate(self.particles):
             new_particles.append(x)
-            prob1 = self.model.hidden_state.conditional_pdf(x, self.prev_particles[i])
-            prob2 = self.model.observation.conditional_pdf(observation, x)
+            prob1 = self.model.hidden_state.conditional_pdf(self.current_time, x, self.prev_particles[i])
+            prob2 = self.model.observation.conditional_pdf(self.current_time, observation, x)
             prob3 = scipy.stats.multivariate_normal.pdf(x, mean = self.importance_mean, cov = self.importance_cov)
             q = prob1*prob2/prob3
 
@@ -373,8 +373,8 @@ class GlobalSamplingUPF(ParticleFilter):
                 #print("\n\nimp_mean\n=====================\n{} {} {}\n".format(self.importance_mean, self.current_time, i))
                 #print("\n\nimp_cov\n=====================\n{}\n".format(self.importance_cov))
                 sample  = np.random.multivariate_normal(mean = self.importance_mean, cov = self.importance_cov)
-                prob1 = self.model.hidden_state.conditional_pdf(sample, self.prev_particles[i])
-                prob2 = self.model.observation.conditional_pdf(observation, sample)
+                prob1 = self.model.hidden_state.conditional_pdf(self.current_time, sample, self.prev_particles[i])
+                prob2 = self.model.observation.conditional_pdf(self.current_time, observation, sample)
                 prob3 = scipy.stats.multivariate_normal.pdf(sample, mean = self.importance_mean, cov = self.importance_cov)
                 p = prob1*prob2/prob3
                 if np.random.random() <= min((1.0, p/q)):
@@ -496,8 +496,8 @@ class QuadraticImplicitPF(ParticleFilter):
             self.particles = self.model.hidden_state.sims[self.current_time].generate(self.particle_count)
             # compute new weights
             for i in range(self.particle_count):
-                #prob1 = self.model.hidden_state.conditional_pdf(new_particles[i], self.particles[i])
-                prob2 = self.model.observation.conditional_pdf(observation, self.particles[i])
+                #prob1 = self.model.hidden_state.conditional_pdf(self.current_time, new_particles[i], self.particles[i])
+                prob2 = self.model.observation.conditional_pdf(self.current_time, observation, self.particles[i])
                 #prob3 = self.importance_pdf(new_particles[i], self.particles[i])
                 self.weights[i] *= prob2
         else:
@@ -578,8 +578,8 @@ class RandomQuadraticIPF(ParticleFilter):
             self.particles = self.model.hidden_state.sims[self.current_time].generate(self.particle_count)
             # compute new weights
             for i in range(self.particle_count):
-                #prob1 = self.model.hidden_state.conditional_pdf(new_particles[i], self.particles[i])
-                prob2 = self.model.observation.conditional_pdf(observation, self.particles[i])
+                #prob1 = self.model.hidden_state.conditional_pdf(self.current_time, new_particles[i], self.particles[i])
+                prob2 = self.model.observation.conditional_pdf(self.current_time, observation, self.particles[i])
                 #prob3 = self.importance_pdf(new_particles[i], self.particles[i])
                 self.weights[i] *= prob2
         else:

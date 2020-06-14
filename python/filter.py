@@ -153,7 +153,7 @@ class ParticleFilter():
         if 1.0/(self.weights**2).sum() < threshold_factor*self.particle_count:
             indices = np.random.choice(self.particle_count, self.particle_count, p = self.weights)
             u = self.systematic_resample()#np.take(a = self.particles, indices = indices, axis = 0)
-            print("\n\n Num particles = {} \n\n".format(u))
+            #print("\n\n Num particles = {} \n\n".format(u))
             #print("resampled weights:", self.weights.sum(), np.max(self.weights))
             # create weight map for faster computation
             """
@@ -280,6 +280,7 @@ class GlobalSamplingUPF(ParticleFilter):
         root_matrix = scipy.linalg.sqrtm((self.aug_dimension + self.lam)*aug_cov)
         self.sigma_pts[0] = aug_mean
         for i, column in enumerate(root_matrix):
+            #print(aug_mean, column)
             self.sigma_pts[2*i + 1] = aug_mean + column
             self.sigma_pts[2*(i + 1)] = aug_mean - column
 
@@ -369,8 +370,8 @@ class GlobalSamplingUPF(ParticleFilter):
             attempts = 0
             while True and attempts < 10:
                 attempts += 1
-                print("\n\nimp_mean\n=====================\n{} {} {}\n".format(self.importance_mean, self.current_time, i))
-                print("\n\nimp_cov\n=====================\n{}\n".format(self.importance_cov))
+                #print("\n\nimp_mean\n=====================\n{} {} {}\n".format(self.importance_mean, self.current_time, i))
+                #print("\n\nimp_cov\n=====================\n{}\n".format(self.importance_cov))
                 sample  = np.random.multivariate_normal(mean = self.importance_mean, cov = self.importance_cov)
                 prob1 = self.model.hidden_state.conditional_pdf(sample, self.prev_particles[i])
                 prob2 = self.model.observation.conditional_pdf(observation, sample)

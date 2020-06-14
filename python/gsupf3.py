@@ -5,16 +5,16 @@ import utility as ut
 import matplotlib.pyplot as plt
 import plot
 import model3
-
+np.random.seed(16)
 
 """
 Solution using a gsupf
 """
-model = model3.model()
+model, a, b = model3.model()
 hidden_path = model.hidden_state.generate_path()
 observed_path = model.observation.generate_path(hidden_path)
 
-pf = fl.GlobalSamplingUPF(model, particle_count = 1000, alpha = 0.9, kappa = 20.0, beta = 2.0)
+pf = fl.GlobalSamplingUPF(model, particle_count = 1000, alpha = 1.0, kappa = 2.0, beta = 0.0)
 pf.update(observed_path, threshold_factor = 0.1, method = 'mean')
 mean = pf.computed_trajectory[-1]
 

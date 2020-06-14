@@ -2,6 +2,7 @@ import simulate as sm
 import filter as fl
 import numpy as np
 import scipy
+import plot
 
 """
 A 2D problem with known solution
@@ -11,10 +12,10 @@ s = 10
 mu = np.zeros(2)
 id = np.identity(d)
 # Create a Markov chain
-prior = sm.Simulation(target_rv = sm.RVContinuous(name = 'normal', mean = mu, cov = id), \
+prior = sm.Simulation(target_rv = sm.RVContinuous(name = 'normal', mean = mu, cov = 1*id), \
                       algorithm = lambda *args: np.random.multivariate_normal(mu, id))
 
-A = np.array([[1.0, 1.0],[0.0, -2.0]])
+A = np.array([[1.0, 1.5],[0, 1.0]])
 f = lambda x: np.dot(A, x)
 mc = sm.GaussianErrorModel(size = s, prior = prior, f = f, sigma = id)
 
@@ -52,3 +53,9 @@ def update(Y, m0 = mu, P0 = id):
 # create a ModelPF object to feed the filter / combine the models
 def model():
     return fl.ModelPF(dynamic_model = mc, measurement_model = om)
+
+"""
+hidden_path = mc.generate_path()
+observed_path = om.generate_path(hidden_path)
+plot.SignalPlotter(signals = [hidden_path, observed_path]).plot_signals(labels = ['hidden', 'observed'], coords_to_plot = [0, 1], show = True)
+"""

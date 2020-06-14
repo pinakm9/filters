@@ -338,7 +338,7 @@ class GlobalSamplingUPF(ParticleFilter):
                 prob1 = self.model.hidden_state.conditional_pdf(self.current_time, new_particles[i], self.particles[i])
                 prob2 = self.model.observation.conditional_pdf(self.current_time, observation, new_particles[i])
                 prob3 = scipy.stats.multivariate_normal.pdf(new_particles[i], mean = self.importance_mean, cov = self.importance_cov)
-                print(prob1, prob2, prob3)
+                #print(prob1, prob2, prob3)
                 self.weights[i] *= (prob1*prob2/prob3)
             self.prev_particles = self.particles
             self.particles = new_particles
@@ -349,7 +349,7 @@ class GlobalSamplingUPF(ParticleFilter):
             #print("\n\nweights\n=====================\n{}\n".format(self.weights))
 
         # normalize weights
-        print('current time = {} and weights = {}'.format(self.current_time, self.weights[:10]))
+        #print('current time = {} and weights = {}'.format(self.current_time, self.weights[:10]))
         self.weights /= self.weights.sum()
 
         # compute mean and variance of the particles

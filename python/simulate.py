@@ -316,6 +316,7 @@ class Simulation(object):
         self.samples = np.array([self.algorithm(*args) for i in range(self.size)]) # container for the collected samples
         # self.mean = np.mean(self.samples)
         # self.var = np.var(self.samples, ddof = 1) # unbiased estimator
+        self.current_value = self.samples[-1]
         return self.samples
 
     def compare(self, file_path = None, display = True, target_cdf_pts = 100):
@@ -498,10 +499,9 @@ class MarkovChain(StochasticProcess):
         Returns:
             self.current_path
         """
-        self.current_path = [self.sims[0].algorithm(*args)]
-        current_value = self.current_path[0]
+        self.current_path = [self.sims[0].algorithm()]
         for sim in self.sims[1:]:
-            self.current_path.append(sim.algorithm(current_value)) # last generated path
+            self.current_path.append(sim.algorithm(self.current_path[-1])) # last generated path
         self.current_path = np.array(self.current_path)
         return self.current_path
 
@@ -525,7 +525,7 @@ class SPConditional(StochasticProcess):
         self.algorithm_args = algorithm_args
         sims = []
         for i in range(size):
-            sims.append(Simulation(algorithm = lambda *args: algorithm(i + 1, *args), **self.algorithm_args))
+            sims.append(Simulation(algorithm = lambda condition: algorithm(i, condition), **self.algorithm_args))
         super().__init__(sims)
 
     def generate_path(self, conditions):
@@ -642,7 +642,7 @@ class DynamicModel(MarkovChain):
 
         # figure out simulation algorithm
         def algorithm(k, past):
-            return self.func(k, past, self.noise.generate()[0])
+            return self.func(k, past, self.noise.algorithm())
 
         super().__init__(size = size, prior = prior, algorithm = algorithm, conditional_pdf = conditional_pdf)
 
@@ -670,6 +670,6 @@ class Measurement_model(SPConditional):
 
         # figure out simulation algorithm
         def algorithm(k, condition):
-            return self.func(k, condition, self.noise.generate()[0])
+            return self.func(k, condition, self.noise.algorithm())
 
         super().__init__(size = size, algorithm = algorithm, conditional_pdf = conditional_pdf)

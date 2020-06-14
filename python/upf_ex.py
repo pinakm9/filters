@@ -10,23 +10,27 @@ def experiment(model, particle_counts, num_exprs, alpha, beta, kappa, resampling
     # compute average error for each particle count
     rmse, err_in_mean = [], []
     for particle_count in particle_counts:
-        error, err_m = 0.0, 0.0
-        for expr in range(num_exprs):
-            print('\rusing {:04} particles: experiment# {:03d}'.format(particle_count, expr), end = '')
+        error, err_m, expr = 0.0, 0.0, 0
+        while expr < num_exprs:
             # Generate paths
             hidden_path = model.hidden_state.generate_path()
             observed_path = model.observation.generate_path(hidden_path)
+            print('\rusing {:04} particles: experiment# {:03d}'.format(particle_count, expr), end = '')
             # create particle filter
             pf = fl.GlobalSamplingUPF(model, particle_count = particle_count, alpha = alpha, beta = beta, kappa = kappa)
-            pf.update(observed_path , threshold_factor = resampling_threshold, method = 'mean')
-            pf.compute_error(hidden_path)
-            error += pf.rmse
-            if exact_mean is not None:
-                err_m += np.linalg.norm(exact_mean(observed_path[1:]) - pf.computed_trajectory[-1])
+            try:
+                pf.update(observed_path , threshold_factor = resampling_threshold, method = 'mean')
+                pf.compute_error(hidden_path)
+                error += pf.rmse
+                if exact_mean is not None:
+                    err_m += np.linalg.norm(exact_mean(observed_path[1:]) - pf.computed_trajectory[-1])
+                expr += 1
+            except:
+                pass
         rmse.append(error/num_exprs)
         if exact_mean is not None:
             err_in_mean.append(err_m/num_exprs)
-
+    # print a newline
     print()
     # plot average error vs particle_count
     x = np.linspace(min(particle_counts), max(particle_counts), 100)

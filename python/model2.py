@@ -16,13 +16,13 @@ conditional_pdf = lambda k, x, condition: scipy.stats.norm.pdf(x[0], (np.array([
 mc = sm.DynamicModel(size = s, prior = prior, func = func, sigma = [0.01], noise_sim = noise_sim, conditional_pdf = conditional_pdf)
 
 # Define the observation model
-noise_sim = sm.Simulation(algorithm = lambda* args: np.array([np.random.gamma(a = alpha, scale = theta)]))
+noise_sim = sm.Simulation(algorithm = lambda* args: np.array([np.random.gamma(shape = alpha, scale = theta)]))
 
 def func(k, x, noise):
     if k < 31:
-        return np.array([0.2*x[0]**2 + noise])
+        return 0.2*x**2 + noise
     else:
-        return np.array([0.5*x[0] + noise - 2.0])
+        return 0.5*x + noise - np.array([2.0])
 
 def conditional_pdf(k, y, condition):
     if k < 31:
@@ -37,4 +37,4 @@ observed_path = om.generate_path(hidden_path)
 print(observed_path)
 
 def model():
-    return 0
+    return fl.ModelPF(dynamic_model = mc, measurement_model = om)

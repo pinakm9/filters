@@ -670,6 +670,6 @@ class Measurement_model(SPConditional):
 
         # figure out simulation algorithm
         def algorithm(k, condition):
-            return self.func(k, past, self.noise.generate()[0])
+            return self.func(k, condition, self.noise.generate()[0])
 
         super().__init__(size = size, algorithm = algorithm, conditional_pdf = conditional_pdf)

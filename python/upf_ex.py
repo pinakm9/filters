@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import plot
 
 @ut.timer
-def experiment(model, particle_counts, num_exprs, alpha, beta, kappa, resampling_threshold, titles = None, file_paths = None, exact_mean = None):
+def experiment(model, particle_counts, num_exprs, alpha, beta, kappa, resampling_threshold, titles = None, file_paths = None, final_exact_mean = None):
     # compute average error for each particle count
     rmse, err_in_mean = [], []
     for particle_count in particle_counts:
@@ -22,15 +22,15 @@ def experiment(model, particle_counts, num_exprs, alpha, beta, kappa, resampling
                 pf.update(observed_path , threshold_factor = resampling_threshold, method = 'mean')
                 pf.compute_error(hidden_path)
                 error += pf.rmse
-                if exact_mean is not None:
-                    err_m += np.linalg.norm(exact_mean(observed_path[1:]) - pf.computed_trajectory[-1])
+                if final_exact_mean is not None:
+                    err_m += np.linalg.norm(final_exact_mean(observed_path[1:]) - pf.computed_trajectory[-1])
                 expr += 1
             except:
                 pass
         rmse.append(error/num_exprs)
-        if exact_mean is not None:
+        if final_exact_mean is not None:
             err_in_mean.append(err_m/num_exprs)
-    # print a newline
+    # print a newline for clarity
     print()
     # plot average error vs particle_count
     x = np.linspace(min(particle_counts), max(particle_counts), 100)
@@ -44,7 +44,7 @@ def experiment(model, particle_counts, num_exprs, alpha, beta, kappa, resampling
         plt.savefig(file_paths[0])
 
     # plot error in mean vs particle_count
-    if exact_mean is not None:
+    if final_exact_mean is not None:
         plt.clf()
         #y = scipy.interpolate.make_interp_spline(particle_counts, err_in_mean)(x)
         plt.plot(particle_counts, err_in_mean)

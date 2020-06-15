@@ -488,7 +488,7 @@ class MarkovChain(StochasticProcess):
         self.algorithm_args = algorithm_args
         sims = [prior]
         for i in range(size - 1):
-            sims.append(Simulation(algorithm = lambda *args: algorithm(i + 1, *args), **self.algorithm_args))
+            sims.append(Simulation(algorithm = algorithm, **self.algorithm_args))
         super().__init__(sims)
 
     def generate_path(self, *args):
@@ -500,8 +500,8 @@ class MarkovChain(StochasticProcess):
             self.current_path
         """
         self.current_path = [self.sims[0].algorithm()]
-        for sim in self.sims[1:]:
-            self.current_path.append(sim.algorithm(self.current_path[-1])) # last generated path
+        for i, sim in enumerate(self.sims[1:]):
+            self.current_path.append(sim.algorithm(i+1, self.current_path[-1])) # last generated path
         self.current_path = np.array(self.current_path)
         return self.current_path
 
@@ -525,7 +525,7 @@ class SPConditional(StochasticProcess):
         self.algorithm_args = algorithm_args
         sims = []
         for i in range(size):
-            sims.append(Simulation(algorithm = lambda condition: algorithm(i, condition), **self.algorithm_args))
+            sims.append(Simulation(algorithm = algorithm, *self.algorithm_args))
         super().__init__(sims)
 
     def generate_path(self, conditions):
@@ -538,7 +538,7 @@ class SPConditional(StochasticProcess):
         """
         self.current_path = []
         for i, sim in enumerate(self.sims):
-            self.current_path.append(sim.algorithm(conditions[i])) # last generated path
+            self.current_path.append(sim.algorithm(i, conditions[i])) # last generated path
         self.current_path = np.array(self.current_path)
         return self.current_path
 
@@ -646,7 +646,7 @@ class DynamicModel(MarkovChain):
 
         super().__init__(size = size, prior = prior, algorithm = algorithm, conditional_pdf = conditional_pdf)
 
-class Measurement_model(SPConditional):
+class MeasurementModel(SPConditional):
     """
     Description:
         This is a class for defining an SPConditional object of the form y_k = f(x_k, z)

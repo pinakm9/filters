@@ -23,7 +23,7 @@ func = lambda k, x, noise: np.dot(H, x) + 0.5*np.sin(x) + noise
 noise_sim = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mu, delta*id))
 conditional_pdf = lambda k, y, condition: scipy.stats.multivariate_normal.pdf(y, mean = func(0, condition, mu), cov = delta*id)
 #om = sm.GaussianObservationModel(size = s, f = f, sigma = 0.01*id)
-om = sm.Measurement_model(size = s, func = func, sigma = delta*id, noise_sim = noise_sim, conditional_pdf = conditional_pdf)
+om = sm.MeasurementModel(size = s, func = func, sigma = delta*id, noise_sim = noise_sim, conditional_pdf = conditional_pdf)
 
 
 def model():

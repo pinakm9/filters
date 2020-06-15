@@ -13,8 +13,11 @@ Solution using a gsupf
 model, a, b = model3.model()
 hidden_path = model.hidden_state.generate_path()
 observed_path = model.observation.generate_path(hidden_path)
-
-pf = fl.GlobalSamplingUPF(model, particle_count = 1000, alpha = 1.0, kappa = 2.0, beta = 0.0)
+#"""
+plot.SignalPlotter(signals = [hidden_path, observed_path]).plot_signals(labels = ['hidden', 'observed'],\
+    styles = [{'linestyle': 'solid'}, {'marker': 'x'}], colors = ['black', 'blue'],  coords_to_plot = [0, 1], show = True)
+#"""
+pf = fl.GlobalSamplingUPF(model, particle_count = 4000, alpha = 1.0, kappa = 2.0, beta = 0.0)
 pf.update(observed_path, threshold_factor = 0.1, method = 'mean')
 mean = pf.computed_trajectory[-1]
 

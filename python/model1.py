@@ -8,32 +8,40 @@ import plot
 A 2D problem with known solution
 """
 d = 2
-s = 10
+eps = 0.01
 mu = np.zeros(2)
 id = np.identity(d)
+cov_h = id
 # Create a Markov chain
-prior = sm.Simulation(target_rv = sm.RVContinuous(name = 'normal', mean = mu, cov = 1*id), \
+prior = sm.Simulation(target_rv = sm.RVContinuous(name = 'normal', mean = mu, cov = id), \
                       algorithm = lambda *args: np.random.multivariate_normal(mu, id))
 
 A = np.array([[1.0, 1.5],[0, 1.0]])
-f = lambda x: np.dot(A, x)
-mc = sm.GaussianErrorModel(size = s, prior = prior, f = f, sigma = id)
+f_h = lambda x: np.dot(A, x)
+
 
 # Define the observation model
+cov_o = eps*id
 H = np.array([[1.0, 1.0],[0.0, 2.0]])
-f = lambda x: np.dot(H, x)
-om = sm.GaussianObservationModel(size = s, f = f, sigma = 0.01*id)
+f_o = lambda x: np.dot(H, x)
+
+# creates a ModelPF object to feed the filter / combine the models
+def model(size):
+    mc = sm.GaussianErrorModel(size = size, prior = prior, f = f_h, sigma = cov_h)
+    om = sm.GaussianObservationModel(size = size, f = f_o, sigma = cov_o)
+    return fl.ModelPF(dynamic_model = mc, measurement_model = om)
+
 
 """
-Solution to the filtering problem
+Exact solution to the filtering problem
 """
 def one_step_predict_update(m, P, y):
     # predict mean and covariance
     m_ = np.dot(A, m)
-    P_ = np.linalg.multi_dot([A, P, A.T]) + mc.sigma
+    P_ = np.linalg.multi_dot([A, P, A.T]) + cov_h# <-- mc.sigma
     # update mean and covariance
     v = y - np.dot(H, m_)
-    S = np.linalg.multi_dot([H, P_, H.T]) + om.sigma
+    S = np.linalg.multi_dot([H, P_, H.T]) + cov_o
     K = np.linalg.multi_dot([P_, H.T, np.linalg.inv(S)])
     #print("\n~~~~~~~~~~~~~ K = \n{}\n{}\n{}\n{}\n ~~~~~~~~~~~~~~~~\n".format(K, P, S, om.sigma))
     m_ += np.dot(K,v)
@@ -49,13 +57,3 @@ def update(Y, m0 = mu, P0 = id):
         means.append(m)
         covs.append(P)
     return np.array(means), np.array(covs)
-
-# create a ModelPF object to feed the filter / combine the models
-def model():
-    return fl.ModelPF(dynamic_model = mc, measurement_model = om)
-
-"""
-hidden_path = mc.generate_path()
-observed_path = om.generate_path(hidden_path)
-plot.SignalPlotter(signals = [hidden_path, observed_path]).plot_signals(labels = ['hidden', 'observed'], coords_to_plot = [0, 1], show = True)
-"""

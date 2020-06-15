@@ -224,15 +224,15 @@ class ParticleFilter():
         self.error_mean = np.mean(self.error, axis = 0)
         self.error_cov = np.std(self.error, axis = 0)
 
-    def plot_trajectories(self, hidden_path, coords_to_plot, show = False, save = False, file_path = None, title = None):
+    def plot_trajectories(self, hidden_path, coords_to_plot, show = False, file_path = None, title = None):
         plot.SignalPlotter(signals = [hidden_path, self.observed_path, self.computed_trajectory])\
             .plot_signals(labels = ['hidden', 'observed', 'computed'], styles = [{'linestyle':'solid'}, {'marker':'x'}, {'marker':'o'}],\
             plt_fns = ['plot', 'scatter', 'scatter'], colors = ['black', 'blue', 'red'], coords_to_plot = coords_to_plot,\
-            show = show, save = save, file_path = file_path, title = title)
+            show = show, file_path = file_path, title = title)
 
-    def plot_error(self, show = False, save = False, file_path = None, title = None):
+    def plot_error(self, show = False, file_path = None, title = None):
         plot.SignalPlotter(signals = [abs(self.error)]).plot_signals(labels = ['absolute error'], styles = [{'linestyle':'solid'}],\
-            plt_fns = ['plot'], colors = ['black'], coords_to_plot = [0], show = show, save = save, file_path = file_path, title = title)
+            plt_fns = ['plot'], colors = ['black'], coords_to_plot = [0], show = show, file_path = file_path, title = title)
 
 
 

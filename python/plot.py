@@ -43,7 +43,7 @@ class SignalPlotter(object):
     def plot_signals(self, labels = [], styles = [{'linestyle':'solid'}, {'marker':'o'}, {'marker':'^'}],\
                     plt_fns = ['plot', 'scatter', 'scatter'],  colors = ['red', 'green', 'blue'],\
                     max_pts = 100, fig_size = (7,6), time_unit = 'second', coords_to_plot = [],\
-                    show = False, save = False, file_path = None, title = None):
+                    show = False, file_path = None, title = None):
         """
         Description:
             Plots observed and processed signals depending on the dimension of the problem
@@ -114,11 +114,12 @@ class SignalPlotter(object):
 
         if title is not None:
             plt.title(title)
+
+        if file_path is not None:
+                plt.savefig(fname = file_path)
+
         if show is True:
             plt.show()
-        if save is True:
-            if file_path is not None:
-                plt.savefig(fname = file_path)
-            else:
-                print("file_path was not specified. So the image file was not saved.")
+        #else:
+            #print("file_path was not specified. So the image file was not saved.")
         return fig, ax

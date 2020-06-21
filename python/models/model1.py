@@ -1,8 +1,15 @@
+# add modules folder to Python's search pathi
+mport sys
+from pathlib import Path
+from os.path import dirname, realpath
+sys.path.insert(0, str(Path(dirname(realpath(__file__))).parent) + '/modules')
+# import remaining modules
 import simulate as sm
 import filter as fl
 import numpy as np
 import scipy
-import plot
+import plot as plot
+
 
 """
 A 2D problem with known solution

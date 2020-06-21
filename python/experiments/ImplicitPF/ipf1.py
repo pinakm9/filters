@@ -19,7 +19,7 @@ Solution using an implcit particle filter
 """
 
 pf = fl.ImplicitPF(model, particle_count = 2000, F = model1.F, minimum = model1.minimum)
-pf.update(observed_path, threshold_factor = 0.0, method = 'mean')
+pf.update(observed_path, threshold_factor = 0.1, method = 'mean')
 
 # plot true vs computed mean
 exact_final_mean = model1.update(observed_path[1:])[0][-1]

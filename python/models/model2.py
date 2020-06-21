@@ -1,3 +1,9 @@
+# add modules folder to Python's search path
+import sys
+from pathlib import Path
+from os.path import dirname, realpath
+sys.path.insert(0, str(Path(dirname(realpath(__file__))).parent) + '/modules')
+# import remaining modules
 import simulate as sm
 import filter as fl
 import numpy as np

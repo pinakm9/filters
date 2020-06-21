@@ -583,16 +583,17 @@ class ImplicitPF(ParticleFilter):
                 self.weights[i] *= self.model.observation.conditional_pdf(self.current_time, observation, self.particles[i])
 
         else:
-            for i in range(self.particle_count):
 
+            for i in range(self.particle_count):
+                xi = np.random.multivariate_normal(np.zeros(self.model.hidden_state.dimension), np.identity(self.model.hidden_state.dimension))
                 # create F_i, its grad and hessian for minimization
                 F_i = lambda x: self.F(self.current_time, x, self.particles[i], observation)
-
+                F_i2 = lambda x: F_i(x)**2
                 # create the non-linear equation
-                xi = np.random.multivariate_normal(np.zeros(self.model.hidden_state.dimension), np.identity(self.model.hidden_state.dimension))
+
                 # figure out phi_i and mu_i
 
-                mu_i =  scipy.optimize.minimize(F_i, self.minimum(self.current_time, self.particles[i], observation) ).x
+                mu_i =  self.minimum(self.current_time, self.particles[i], observation)
 
                 phi_i = F_i(mu_i)
                 rho = np.dot(xi, xi)

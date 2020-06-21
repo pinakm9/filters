@@ -31,6 +31,20 @@ def model(size):
     om = sm.GaussianObservationModel(size = size, f = f_o, sigma = cov_o)
     return fl.ModelPF(dynamic_model = mc, measurement_model = om)
 
+cov_h_i = np.linalg.inv(cov_h)
+cov_o_i = np.linalg.inv(cov_o)
+
+def F(k, x, x_prev, observation):
+    a = x - np.dot(A, x_prev)
+    b = observation - np.dot(H, x)
+    return 0.5*(np.linalg.multi_dot([a.T, cov_h_i, a]) + np.linalg.multi_dot([b.T, cov_o_i, b]))
+
+L = cov_h_i.T + np.linalg.multi_dot([H.T, cov_o_i, H])
+P = np.dot(cov_h_i.T, A)
+Q = np.dot(H.T, cov_o_i.T)
+
+def minimum(k, x_prev, observation):
+    return np.linalg.solve(L, np.dot(P, x_prev) + np.dot(Q, observation))
 
 """
 Exact solution to the filtering problem

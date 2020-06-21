@@ -12,35 +12,55 @@ import plot
 """
 A 1D non-linear problem
 """
+two, zero = np.array([2.0]), np.array([0.0]),
+# Define the dynamic model
+x_0 = np.array([1.0])
+alpha, theta, w  = 3, 0.5, 0.04
+prior = sm.Simulation(algorithm = lambda *args: x_0)
+process_noise = sm.Simulation(algorithm = lambda* args: np.array([np.random.gamma(shape = alpha, scale = theta)]))
+func_h = lambda k, x, noise: np.array([1.0 + np.sin(w*np.pi*k)]) + 0.5*x + noise
+conditional_pdf_h = lambda k, x, past: scipy.stats.gamma.pdf(x[0], a = alpha, loc = func_h(k, past, zero)[0], scale = theta)
+
+# Define the observation model
+sigma_o, threshold = 0.0001, 5 #int(size/2)
+observation_noise = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal([0.0], [[sigma_o]]))
+f1 = lambda x, noise: 0.2*x**2 + noise
+f2 = lambda x, noise: 0.5*x + noise - two
+def func_o(k, x, noise):
+    #print('k = {}'.format(k))
+    if k < threshold:
+        return f1(x, noise)
+    else:
+        return f2(x, noise)
+def conditional_pdf_o(k, y, condition):
+    if k < threshold:
+        prob = scipy.stats.multivariate_normal.pdf(y, mean = f1(condition, zero), cov = [[sigma_o]])
+    else:
+        prob = scipy.stats.multivariate_normal.pdf(y, mean = f2(condition, zero), cov =  [[sigma_o]])
+    #print('k = {}, y = {}, condition = {}, f1 = {}, f2 = {}, prob = {}'.format(k, y, condition, f1(condition, zero), f2(condition, zero), prob))
+    return prob
+
+# Define F and compute it's minimum and gradient
+def F(k, x, x_prev, observation):
+    a = x - func_h(k, x_prev, zero)
+    b = observation - func_o(k, x, zero)
+    return (a/theta - (alpha - 1.0)*np.log(a) + 0.5*b**2/sigma_o)[0]
+
+def grad_F(k, x, x_prev, observation):
+    a = x - func_h(k, x_prev, zero)
+    b = observation - func_o(k, x, zero)
+    if k < threshold:
+        return np.array([1.0 - (alpha - 1.0)/a[0] - (b[0]/sigma_o)*(0.4*x[0])])
+    else:
+        return np.array([1.0 - (alpha - 1.0)/a[0] - (b[0]/sigma_o)*0.5])
+
+def min_F(k, x_prev, observation):
+    f = lambda x: F(k, x, x_prev, observation)
+    return np.array([scipy.optimize.minimize(f, x0 = alpha + np.sin(w*np.pi*k) + 0.5*x_prev).x])
+
+
 # creates a ModelPF object to feed the filter / combine the models
 def model(size):
-    # Create a Markov chain
-    x_0 = np.array([1.0])
-    alpha, theta, w  = 3, 0.5, 0.04
-    prior = sm.Simulation(algorithm = lambda *args: x_0)
-    process_noise = sm.Simulation(algorithm = lambda* args: np.array([np.random.gamma(shape = alpha, scale = theta)]))
-    func_h = lambda k, x, noise: np.array([1.0 + np.sin(w*np.pi*k)]) + 0.5*x + noise
-    conditional_pdf_h = lambda k, x, past: scipy.stats.gamma.pdf(x[0], a = alpha, loc = (np.array([1.0 + np.sin(w*np.pi*k)]) + 0.5*past)[0], scale = theta)
-
-    # Define the observation model
-    sigma_o, two, zero, threshold = 0.0001, np.array([2.0]), np.array([0.0]), int(size/2)
-    observation_noise = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal([0.0], [[sigma_o]]))
-    f1 = lambda x, noise: 0.2*x**2 + noise
-    f2 = lambda x, noise: 0.5*x + noise - two
-    def func_o(k, x, noise):
-        #print('k = {}'.format(k))
-        if k < threshold:
-            return f1(x, noise)
-        else:
-            return f2(x, noise)
-    def conditional_pdf_o(k, y, condition):
-        if k < threshold:
-            return scipy.stats.multivariate_normal.pdf(y, f1(condition, zero), [[sigma_o]])
-        else:
-            return scipy.stats.multivariate_normal.pdf(y, f2(condition, zero), [[sigma_o]])
-
-    mc = sm.DynamicModel(size = size, prior = prior, func = func_h, sigma = np.array([[alpha*theta**2]]),\
-                        noise_sim = process_noise, conditional_pdf = conditional_pdf_h)
-    om = sm.MeasurementModel(size = size, func = func_o, sigma = np.array([[sigma_o]]),\
-                        noise_sim = observation_noise, conditional_pdf = conditional_pdf_o)
+    mc = sm.DynamicModel(size = size, prior = prior, func = func_h, sigma = np.array([[alpha*theta**2]]), noise_sim = process_noise, conditional_pdf = conditional_pdf_h)
+    om = sm.MeasurementModel(size = size, func = func_o, sigma = np.array([[sigma_o]]), noise_sim = observation_noise, conditional_pdf = conditional_pdf_o)
     return fl.ModelPF(dynamic_model = mc, measurement_model = om)

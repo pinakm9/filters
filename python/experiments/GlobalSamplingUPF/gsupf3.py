@@ -1,4 +1,12 @@
 # Takes size (or length of Markov chain or final time) of models as the command line argument
+# add modules folder to Python's search path
+import sys
+from pathlib import Path
+from os.path import dirname, realpath
+module_dir = str(Path(dirname(realpath(__file__))).parent.parent)
+sys.path.insert(0, module_dir + '/modules')
+sys.path.insert(0, module_dir + '/models')
+# import remaining modules
 import numpy as np
 import filter as fl
 import scipy
@@ -6,7 +14,6 @@ import utility as ut
 import matplotlib.pyplot as plt
 import plot
 import model3
-import sys
 np.random.seed(16)
 
 """

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import plot
 
 @ut.timer
-def experiment(model, particle_counts, num_exprs, alpha, beta, kappa, resampling_threshold, titles = None, file_paths = None, final_exact_mean = None):
+def experiment(model, filter, particle_counts, num_exprs, resampling_threshold, titles = None, file_paths = None, final_exact_mean = None, **filter_kwargs):
     # compute average error for each particle count
     rmse, err_in_mean = [], []
     for particle_count in particle_counts:
@@ -17,7 +17,7 @@ def experiment(model, particle_counts, num_exprs, alpha, beta, kappa, resampling
             observed_path = model.observation.generate_path(hidden_path)
             print('\rusing {:04} particles: experiment# {:03d}'.format(particle_count, expr), end = '')
             # create particle filter
-            pf = fl.GlobalSamplingUPF(model, particle_count = particle_count, alpha = alpha, beta = beta, kappa = kappa)
+            pf = getattr(fl, filter)(model, particle_count = particle_count, **filter_kwargs)
             try:
                 pf.update(observed_path , threshold_factor = resampling_threshold, method = 'mean')
                 pf.compute_error(hidden_path)

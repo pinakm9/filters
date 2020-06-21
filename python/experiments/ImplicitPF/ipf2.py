@@ -29,7 +29,7 @@ plot.SignalPlotter(signals = [hidden_path, observed_path]).plot_signals(labels =
 """
 Solution using a GS-UPF
 """
-pf = fl.GlobalSamplingUPF(model, particle_count = 2000, alpha = 1.0, kappa = 2.0, beta = 0.0)
+pf = fl.ImplicitPF(model, particle_count = 200, F = model2.F, min_F= model2.min_F, grad_F = model2.grad_F)
 pf.update(observed_path, threshold_factor = 0.1, method = 'mean')
 
 # plot trajectories

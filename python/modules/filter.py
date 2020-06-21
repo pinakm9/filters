@@ -351,7 +351,7 @@ class GlobalSamplingUPF(ParticleFilter):
         # normalize weights
         #print('current time = {} and weights = {}'.format(self.current_time, self.weights[:10]))
         self.weights /= self.weights.sum()
-
+        print('w_max = {}'.format(max(self.weights)))
         # compute mean and variance of the particles
         self.importance_mean = np.average(self.particles, weights = self.weights, axis = 0)
         self.importance_cov = np.zeros((self.dimension, self.dimension))
@@ -412,50 +412,6 @@ class GlobalSamplingUPF(ParticleFilter):
             self.compute_sigma_pts()
             self.current_time += 1
         return self.weights
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -550,21 +506,13 @@ class ImplicitPF(ParticleFilter):
     Parent class:
         ParticleFilter
     """
-    def __init__(self, model, particle_count, F, minimum = None, save_trajectories = False):
+    def __init__(self, model, particle_count, F, min_F, grad_F, save_trajectories = False):
         super().__init__(model = model, particle_count = particle_count, save_trajectories = save_trajectories)
         #self.grad = grad # gradient of F, it's a function of form f(k, x, x_prev, observation)
-        self.minimum = minimum # minimum of F, it's a function of form f(k, x_prev, observation)
-
         # define F = negative log of product of conditional pdfs
-        """
-        def F(k, x, x_prev, observation):
-            a = self.model.hidden_state.conditional_pdf(k, x, x_prev)
-            b = self.model.observation.conditional_pdf(k, observation, x)
-            #print('(a, b) = ({}, {})'.format(a, b))
-            return -np.log(a*b)
-        """
         self.F  = F
-
+        self.min_F = min_F
+        self.grad_F = grad_F
 
     def compute_weights(self, observation):
         """
@@ -588,36 +536,22 @@ class ImplicitPF(ParticleFilter):
                 xi = np.random.multivariate_normal(np.zeros(self.model.hidden_state.dimension), np.identity(self.model.hidden_state.dimension))
                 # create F_i, its grad and hessian for minimization
                 F_i = lambda x: self.F(self.current_time, x, self.particles[i], observation)
-                F_i2 = lambda x: F_i(x)**2
                 # create the non-linear equation
-
-                # figure out phi_i and mu_i
-
-                mu_i =  self.minimum(self.current_time, self.particles[i], observation)
-
+                mu_i =  self.min_F(self.current_time, self.particles[i], observation)
                 phi_i = F_i(mu_i)
                 rho = np.dot(xi, xi)
                 eta = xi/np.sqrt(rho)
                 f = lambda lam: F_i(mu_i + lam*eta) - phi_i - 0.5*rho
-                f2 = lambda lam: f(lam)**2
-                # create the derivatives of F_i, f
-                #grad_F_i = lambda x: self.grad(self.current_time, x, self.particles[i], observation)
-                #f_prime = lambda lam: [np.dot(scipy.optimize.approx_fprime(mu_i + lam*eta), eta)]
-
                 # solve for current particle position and compute Jacobian
-                lam = scipy.optimize.fsolve(f, 0.01)[0]
-                # print("{}----------{}".format(lam, f(lam)))
-                grad = scipy.optimize.approx_fprime(mu_i + lam*eta, F_i, 1e-6)
-                #print('simon says {}, grad = {}'.format(i, grad))
-                J = lam**(self.model.hidden_state.dimension-1)*rho**(1-0.5*self.model.hidden_state.dimension)/np.dot(grad, eta)
+                grad_f = lambda lam: [np.dot(self.grad_F(self.current_time, mu_i + lam*eta, self.particles[i], observation), eta)]
+                lam = scipy.optimize.fsolve(f, 0.00001, fprime = grad_f)[0]
+                J = lam**(self.model.hidden_state.dimension-1)*rho**(1-0.5*self.model.hidden_state.dimension)/grad_f(lam)[0]
                 self.particles[i] = mu_i + lam*eta #** don't shift this line up
 
                 # compute weight of k-th particle
                 self.weights[i] *= np.exp(-phi_i)*abs(J)
-        #print('w={}'.format(self.weights[0]))
         # normalize weights
         self.weights /= self.weights.sum()
-
         #print(self.weights)
         #print('w_max = {}'.format(np.max(self.weights)))
         return self.weights

@@ -1,9 +1,10 @@
-# add modules folder to Python's search pathi
-mport sys
+# add modules folder to Python's search path
+import sys
 from pathlib import Path
 from os.path import dirname, realpath
 sys.path.insert(0, str(Path(dirname(realpath(__file__))).parent) + '/modules')
 # import remaining modules
+
 import simulate as sm
 import filter as fl
 import numpy as np
@@ -14,33 +15,38 @@ import plot as plot
 """
 A 2D problem with known solution
 """
+# Some useful constants for defining the problem
 d = 2
 eps = 0.01
-mu = np.zeros(2)
+mu = np.zeros(d)
+zero = np.zeros(d)
 id = np.identity(d)
+
+# Define the dynamic model
 cov_h = id
-# Create a Markov chain
-prior = sm.Simulation(target_rv = sm.RVContinuous(name = 'normal', mean = mu, cov = id), \
-                      algorithm = lambda *args: np.random.multivariate_normal(mu, id))
-
+prior = sm.Simulation(target_rv = sm.RVContinuous(name = 'normal', mean = mu, cov = id), algorithm = lambda *args: np.random.multivariate_normal(mu, id))
 A = np.array([[1.0, 1.5],[0, 1.0]])
-f_h = lambda x: np.dot(A, x)
-
+func_h = lambda k, x, noise: np.dot(A, x) + noise
+noise_sim_h = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mean = mu, cov = cov_h))
+conditional_pdf_h = lambda k, x, past: scipy.stats.multivariate_normal.pdf(x, mean = func_h(k, past, zero), cov = cov_h)
 
 # Define the observation model
 cov_o = eps*id
 H = np.array([[1.0, 1.0],[0.0, 2.0]])
-f_o = lambda x: np.dot(H, x)
+func_o = lambda k, x, noise: np.dot(H, x) + noise
+noise_sim_o = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mean = mu, cov = cov_o))
+conditional_pdf_o = lambda k, y, condition: scipy.stats.multivariate_normal.pdf(y, mean = func_o(k, condition, zero), cov = cov_o)
 
 # creates a ModelPF object to feed the filter / combine the models
 def model(size):
-    mc = sm.GaussianErrorModel(size = size, prior = prior, f = f_h, sigma = cov_h)
-    om = sm.GaussianObservationModel(size = size, f = f_o, sigma = cov_o)
+    mc = sm.DynamicModel(size = size, prior = prior, func = func_h, noise_sim = noise_sim_h, sigma = cov_h, conditional_pdf = conditional_pdf_h)
+    om = sm.MeasurementModel(size = size, func = func_o, noise_sim = noise_sim_o, sigma = cov_o, conditional_pdf = conditional_pdf_o)
     return fl.ModelPF(dynamic_model = mc, measurement_model = om)
 
 cov_h_i = np.linalg.inv(cov_h)
 cov_o_i = np.linalg.inv(cov_o)
 
+# Define F and compute its minimum and gradient
 def F(k, x, x_prev, observation):
     a = x - np.dot(A, x_prev)
     b = observation - np.dot(H, x)
@@ -50,8 +56,17 @@ L = cov_h_i.T + np.linalg.multi_dot([H.T, cov_o_i, H])
 P = np.dot(cov_h_i.T, A)
 Q = np.dot(H.T, cov_o_i.T)
 
-def minimum(k, x_prev, observation):
+def min_F(k, x_prev, observation):
     return np.linalg.solve(L, np.dot(P, x_prev) + np.dot(Q, observation))
+
+def grad_F(k, x, x_prev, observation):
+    a = x - np.dot(A, x_prev)
+    b = observation - np.dot(H, x)
+    return np.dot(a.T, cov_h_i) - np.linalg.multi_dot([b.T, cov_o_i, H])
+
+hess_F = cov_h_i + np.linalg.multi_dot([H.T, cov_o_i, H])
+def hess_F(k, x, x_prev, observation):
+    return hess
 
 """
 Exact solution to the filtering problem

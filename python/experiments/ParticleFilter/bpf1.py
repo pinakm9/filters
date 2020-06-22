@@ -25,24 +25,23 @@ observed_path = model.observation.generate_path(hidden_path)
 """
 Solution using an implcit particle filter
 """
-pf = fl.ParticleFilter(model, particle_count = 2000)
-pf.update(observed_path, threshold_factor = 0.1, method = 'mean')
+bpf = fl.ParticleFilter(model, particle_count = 2000)
+bpf.update(observed_path, threshold_factor = 0.1, method = 'mean')
 
 # plot true vs computed mean
 image_dir = str(script_path.parent.parent.parent) + '/images/ParticleFilter/'
 exact_final_mean = model1.update(observed_path[1:])[0][-1]
-pf_final_mean = pf.computed_trajectory[-1]
-plt.scatter(*zip(*pf.particles))
+bpf_final_mean = bpf.computed_trajectory[-1]
+plt.scatter(*zip(*bpf.particles))
 plt.scatter([exact_final_mean[0]], [exact_final_mean[1]], label = 'True mean', color = 'red')
-plt.scatter([pf_final_mean[0]], [pf_final_mean[1]], label = 'Filter mean', color = 'green')
-plt.title('Mean at time = {}, #particles = {}'.format(s-1, pf.particle_count))
+plt.scatter([bpf_final_mean[0]], [bpf_final_mean[1]], label = 'Filter mean', color = 'green')
+plt.title('Mean at time = {}, #particles = {}'.format(s-1, bpf.particle_count))
 plt.legend()
 plt.savefig(image_dir + 'linear_final_mean.png')
 plt.show()
 
 # plot trajectories
-pf.plot_trajectories(hidden_path, coords_to_plot = [0, 1], show = True, \
-            file_path = image_dir + 'linear_trajectories.png')
-pf.compute_error(hidden_path)
-pf.plot_error(show = True, file_path = image_dir + 'linear_abs_err_vs_time.png')
-print("Error in (final) mean = {}".format(np.linalg.norm(pf_final_mean - exact_final_mean)))
+bpf.plot_trajectories(hidden_path, coords_to_plot = [0, 1], show = True, file_path = image_dir + 'linear_trajectories.png')
+bpf.compute_error(hidden_path)
+bpf.plot_error(show = True, file_path = image_dir + 'linear_abs_err_vs_time.png')
+print("Error in (final) mean = {}".format(np.linalg.norm(bpf_final_mean - exact_final_mean)))

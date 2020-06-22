@@ -541,7 +541,7 @@ class SPConditional(StochasticProcess):
             self.current_path.append(sim.algorithm(i, conditions[i])) # last generated path
         self.current_path = np.array(self.current_path)
         return self.current_path
-        
+
 
 class DynamicModel(MarkovChain):
     """
@@ -565,11 +565,11 @@ class DynamicModel(MarkovChain):
         self.sigma = sigma
         self.dimension = np.shape(sigma)[0]
         self.mu = np.zeros(self.dimension)
-        self.noise = noise_sim
+        self.noise_sim = noise_sim
 
         # figure out simulation algorithm
         def algorithm(k, past):
-            return self.func(k, past, self.noise.algorithm())
+            return self.func(k, past, self.noise_sim.algorithm())
 
         super().__init__(size = size, prior = prior, algorithm = algorithm, conditional_pdf = conditional_pdf)
 
@@ -593,10 +593,10 @@ class MeasurementModel(SPConditional):
         self.sigma = sigma
         self.dimension = np.shape(sigma)[0]
         self.mu = np.zeros(self.dimension)
-        self.noise = noise_sim
+        self.noise_sim = noise_sim
 
         # figure out simulation algorithm
         def algorithm(k, condition):
-            return self.func(k, condition, self.noise.algorithm())
+            return self.func(k, condition, self.noise_sim.algorithm())
 
         super().__init__(size = size, algorithm = algorithm, conditional_pdf = conditional_pdf)

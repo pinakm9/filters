@@ -255,7 +255,8 @@ class GlobalSamplingUPF(ParticleFilter):
     """
     Description:
          A class for defining unscented particle filters
-         Parent class: ParticleFilter
+    Parent class:
+        ParticleFilter
     Attributes (extra):
     """
     def __init__(self, model, particle_count, alpha = 0.1, beta = 2.0, kappa = 0.0, save_trajectories = False):
@@ -543,6 +544,45 @@ class KalmanFilter(Filter):
             self.computed_trajectory.append(self.mean)
             self.current_time += 1
         self.computed_trajectory = np.array(self.computed_trajectory)
+
+class EnsembleKF(KalmanFilter):
+    """
+    Description:
+         A class for defining Ensemble Kalman filters
+    Parent class:
+        Filter
+
+    Attributes (extra):
+        model: a Model object containing the dynamic and measurement models
+        current_time: integer-valued time starting at 0 denoting index of current hidden state
+    """
+    def __init__(self, model, ensemble_size):
+        super().__init__(model = model, mean0 = None, cov0 = None, jac_h_x = None, jac_h_n = None, jac_o_x = None, jac_o_n = None)
+        self.ensemble_size = ensemble_size
+        self.H = self.model.observation.func(self.current_time, np.identity(self.model.hidden_state.dimension), self.zero_o)
+
+    def one_step_update(self, observation):
+        if self.current_time < 1:
+            self.ensemble = np.zeros((self.model.hidden_state.dimension, self.ensemble_size))
+            for i in range(self.ensemble_size):
+                self.ensemble[:, i] = self.model.hidden_state.sims[0].algorithm()
+            self.D = np.zeros((self.model.observation.dimension, self.ensemble_size))
+            self.mean = np.average(self.ensemble, weights = [1.0/self.ensemble_size]*self.ensemble_size, axis = 1)
+
+        # create data matrix and predict new ensemble
+        for i in range(self.ensemble_size):
+            self.ensemble[:, i] = self.model.hidden_state.func(self.current_time, self.ensemble[:, i], self.zero_h)
+            self.D[:, i] = observation + self.model.observation.noise_sim.algorithm()
+
+        # compute Kalman gain
+        A = self.ensemble - np.dot(self.mean.reshape(-1, 1), np.ones((1, self.ensemble_size)))
+        C = np.dot(A, A.T)/(self.ensemble_size - 1.0)
+        S = np.linalg.multi_dot([self.H, C, self.H.T]) + self.measurement_noise_cov
+        K = np.linalg.multi_dot([C, self.H.T, np.linalg.inv(S)])
+
+        # update ensemble
+        self.ensemble += np.dot(K, self.D - np.dot(self.H, self.ensemble))
+        self.mean = np.average(self.ensemble, weights = [1.0/self.ensemble_size]*self.ensemble_size, axis = 1)
 
 class QuadraticImplicitPF(ParticleFilter):
     """

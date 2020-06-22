@@ -56,7 +56,7 @@ L = cov_h_i.T + np.linalg.multi_dot([H.T, cov_o_i, H])
 P = np.dot(cov_h_i.T, A)
 Q = np.dot(H.T, cov_o_i.T)
 
-def min_F(k, x_prev, observation):
+def argmin_F(k, x_prev, observation):
     return np.linalg.solve(L, np.dot(P, x_prev) + np.dot(Q, observation))
 
 def grad_F(k, x, x_prev, observation):

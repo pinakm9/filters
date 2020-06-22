@@ -40,7 +40,7 @@ def conditional_pdf_o(k, y, condition):
     #print('k = {}, y = {}, condition = {}, f1 = {}, f2 = {}, prob = {}'.format(k, y, condition, f1(condition, zero), f2(condition, zero), prob))
     return prob
 
-# Define F and compute it's minimum and gradient
+# Define F and compute its minimum and gradient
 def F(k, x, x_prev, observation):
     a = x - func_h(k, x_prev, zero)
     b = observation - func_o(k, x, zero)
@@ -54,9 +54,9 @@ def grad_F(k, x, x_prev, observation):
     else:
         return np.array([1.0 - (alpha - 1.0)/a[0] - (b[0]/sigma_o)*0.5])
 
-def min_F(k, x_prev, observation):
+def argmin_F(k, x_prev, observation):
     f = lambda x: F(k, x, x_prev, observation)
-    return np.array([scipy.optimize.minimize(f, x0 = alpha + np.sin(w*np.pi*k) + 0.5*x_prev).x])
+    return np.array([scipy.optimize.minimize(fun = f, x0 = alpha + np.sin(w*np.pi*k) + 0.5*x_prev).x])
 
 
 # creates a ModelPF object to feed the filter / combine the models

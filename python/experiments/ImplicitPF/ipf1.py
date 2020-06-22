@@ -25,7 +25,7 @@ observed_path = model.observation.generate_path(hidden_path)
 Solution using an implcit particle filter
 """
 
-pf = fl.ImplicitPF(model, particle_count = 200, F = model1.F, min_F= model1.min_F, grad_F = model1.grad_F)
+pf = fl.ImplicitPF(model, particle_count = 200, F = model1.F, argmin_F= model1.argmin_F, grad_F = model1.grad_F)
 pf.update(observed_path, threshold_factor = 0.1, method = 'mean')
 
 # plot true vs computed mean

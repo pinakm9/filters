@@ -506,12 +506,12 @@ class ImplicitPF(ParticleFilter):
     Parent class:
         ParticleFilter
     """
-    def __init__(self, model, particle_count, F, min_F, grad_F, save_trajectories = False):
+    def __init__(self, model, particle_count, F, argmin_F, grad_F, save_trajectories = False):
         super().__init__(model = model, particle_count = particle_count, save_trajectories = save_trajectories)
         #self.grad = grad # gradient of F, it's a function of form f(k, x, x_prev, observation)
         # define F = negative log of product of conditional pdfs
         self.F  = F
-        self.min_F = min_F
+        self.argmin_F = argmin_F
         self.grad_F = grad_F
 
     def compute_weights(self, observation):
@@ -537,7 +537,7 @@ class ImplicitPF(ParticleFilter):
                 # create F_i, its grad and hessian for minimization
                 F_i = lambda x: self.F(self.current_time, x, self.particles[i], observation)
                 # create the non-linear equation
-                mu_i =  self.min_F(self.current_time, self.particles[i], observation)
+                mu_i =  self.argmin_F(self.current_time, self.particles[i], observation)
                 phi_i = F_i(mu_i)
                 rho = np.dot(xi, xi)
                 eta = xi/np.sqrt(rho)

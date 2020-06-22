@@ -46,8 +46,8 @@ def argmin_F(k, x_prev, observation):
     return scipy.optimize.minimize(fun = f, x0 = x0).x
 
 
-# creates a ModelPF object to feed the filter / combine the models
+# creates a Model object to feed the filter / combine the models
 def model(size):
     mc = sm.DynamicModel(size = size, prior = prior, func = func_h, sigma = eps*id, noise_sim = process_noise, conditional_pdf = conditional_pdf_h)
     om = sm.MeasurementModel(size = size, func = func_o, sigma = delta*id, noise_sim = observation_noise, conditional_pdf = conditional_pdf_o)
-    return fl.ModelPF(dynamic_model = mc, measurement_model = om), a, b
+    return fl.Model(dynamic_model = mc, measurement_model = om), a, b

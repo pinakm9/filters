@@ -59,8 +59,8 @@ def argmin_F(k, x_prev, observation):
     return np.array([scipy.optimize.minimize(fun = f, x0 = alpha + np.sin(w*np.pi*k) + 0.5*x_prev).x])
 
 
-# creates a ModelPF object to feed the filter / combine the models
+# creates a Model object to feed the filter / combine the models
 def model(size):
     mc = sm.DynamicModel(size = size, prior = prior, func = func_h, sigma = np.array([[alpha*theta**2]]), noise_sim = process_noise, conditional_pdf = conditional_pdf_h)
     om = sm.MeasurementModel(size = size, func = func_o, sigma = np.array([[sigma_o]]), noise_sim = observation_noise, conditional_pdf = conditional_pdf_o)
-    return fl.ModelPF(dynamic_model = mc, measurement_model = om)
+    return fl.Model(dynamic_model = mc, measurement_model = om)

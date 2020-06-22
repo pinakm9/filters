@@ -37,11 +37,11 @@ func_o = lambda k, x, noise: np.dot(H, x) + noise
 noise_sim_o = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mean = mu, cov = cov_o))
 conditional_pdf_o = lambda k, y, condition: scipy.stats.multivariate_normal.pdf(y, mean = func_o(k, condition, zero), cov = cov_o)
 
-# creates a ModelPF object to feed the filter / combine the models
+# creates a Model object to feed the filter / combine the models
 def model(size):
     mc = sm.DynamicModel(size = size, prior = prior, func = func_h, noise_sim = noise_sim_h, sigma = cov_h, conditional_pdf = conditional_pdf_h)
     om = sm.MeasurementModel(size = size, func = func_o, noise_sim = noise_sim_o, sigma = cov_o, conditional_pdf = conditional_pdf_o)
-    return fl.ModelPF(dynamic_model = mc, measurement_model = om)
+    return fl.Model(dynamic_model = mc, measurement_model = om)
 
 cov_h_i = np.linalg.inv(cov_h)
 cov_o_i = np.linalg.inv(cov_o)
@@ -67,6 +67,19 @@ def grad_F(k, x, x_prev, observation):
 hess_F = cov_h_i + np.linalg.multi_dot([H.T, cov_o_i, H])
 def hess_F(k, x, x_prev, observation):
     return hess
+
+def jac_h_x(k, x):
+    return A
+
+def jac_h_n(k, x):
+    return id
+
+def jac_o_x(h, x):
+    return H
+
+def jac_o_n(k, x):
+    return id
+
 
 """
 Exact solution to the filtering problem

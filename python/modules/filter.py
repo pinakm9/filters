@@ -6,10 +6,10 @@ import simulate as sm
 import collections as cl
 import plot
 
-class ModelPF():
+class Model():
     """
     Description:
-        A class for defining dynamic and measurement models for a particle filter.
+        A class for defining dynamic and measurement models for a filter.
     Attributes:
         hidden_state: a MarkovChain object simulating the hidden state
         observation: an SPConditional object simulating the observations
@@ -37,13 +37,54 @@ class ModelPF():
             self.observation = measurement_model
 
 
-class ParticleFilter():
+class Filter():
+    """
+    Description:
+         A class for defining generic filters
+         Parent class: object
+    Attributes (extra):
+        model: a Model object containing the dynamic and measurement models
+        current_time: integer-valued time starting at 0 denoting index of current hidden state
+    """
+    def __init__(self, model):
+        """
+        Args:
+            model: a Model object containing the dynamic and measurement models
+        """
+        self.model = model
+        self.current_time = 0
+
+
+    def compute_error(self, hidden_path):
+        """
+        Description:
+            Computes error in assimilation for a random path
+        """
+        self.error = hidden_path - self.computed_trajectory
+        self.rmse = np.linalg.norm(self.error)/np.sqrt(len(hidden_path))
+        self.error_mean = np.mean(self.error, axis = 0)
+        self.error_cov = np.std(self.error, axis = 0)
+
+    def plot_trajectories(self, hidden_path, coords_to_plot, show = False, file_path = None, title = None):
+        plot.SignalPlotter(signals = [hidden_path, self.observed_path, self.computed_trajectory])\
+            .plot_signals(labels = ['hidden', 'observed', 'computed'], styles = [{'linestyle':'solid'}, {'marker':'x'}, {'marker':'o'}],\
+            plt_fns = ['plot', 'scatter', 'scatter'], colors = ['black', 'blue', 'red'], coords_to_plot = coords_to_plot,\
+            show = show, file_path = file_path, title = title)
+
+    def plot_error(self, show = False, file_path = None, title = None):
+        plot.SignalPlotter(signals = [abs(self.error)]).plot_signals(labels = ['absolute error'], styles = [{'linestyle':'solid'}],\
+            plt_fns = ['plot'], colors = ['black'], coords_to_plot = [0], show = show, file_path = file_path, title = title)
+
+
+
+class ParticleFilter(Filter):
     """
     Description:
          A class for defining particle filters
-         Parent class: Filter
+    Parent class:
+        Filter
     Attributes (extra):
-        model: a ModelPF object containing the dynamic and measurement models
+        model: a Model object containing the dynamic and measurement models
         particles: particles used to estimate the filtering distribution
         particle_count: number of particles
         weights: weights computed by the particle filter
@@ -52,20 +93,15 @@ class ParticleFilter():
     def __init__(self, model, particle_count, save_trajectories = False):
         """
         Args:
-            model: a ModelPF object containing the dynamic and measurement models
+            model: a Model object containing the dynamic and measurement models
             particle_count: number of particles to be used
-            start_time: time at first obeservation, default = 0.0
-            time_step: time step between consecutive observations, default = 1.0
         """
-        self.model = model
+        super().__init__(model = model)
         # draw self.particle_count samples from the prior distribution and reshape for hstacking later
         self.particles = []
         self.particle_count = particle_count
         self.weights = np.ones(particle_count)/particle_count
-        self.current_time = 0
-
         self.save_trajectories = save_trajectories
-        self.true_trajectory = self.model.hidden_state.current_path
         # figure out the dimension of the problem
         sample = self.model.hidden_state.sims[0].algorithm()
         if np.isscalar(sample):
@@ -75,7 +111,6 @@ class ParticleFilter():
         self.computed_trajectory = np.empty((0, self.dimension))
         if save_trajectories:
             self.trajectories = [self.particles]
-        #super().__init__(dimension = self.model.hidden_state.sims[0].dimension, start_time = start_time, time_step = time_step)
 
     def compute_weights(self, observation):
         """
@@ -88,7 +123,7 @@ class ParticleFilter():
         """
         # predict the new particles
         if self.current_time > 0:
-            self.particles = [self.model.hidden_state.sims[self.current_time].generate(1, particle)[0] for particle in self.particles]
+            self.particles = [self.model.hidden_state.sims[self.current_time].algorithm(self.current_time, particle) for particle in self.particles]
         else:
             self.particles = self.model.hidden_state.sims[0].generate(self.particle_count)
 
@@ -213,26 +248,6 @@ class ParticleFilter():
                 self.compute_trajectory(method = method)
                 self.current_time += 1
         return self.weights
-
-    def compute_error(self, hidden_path):
-        """
-        Description:
-            Computes error in assimilation for a random path
-        """
-        self.error = hidden_path - self.computed_trajectory
-        self.rmse = np.linalg.norm(self.error)/np.sqrt(len(hidden_path))
-        self.error_mean = np.mean(self.error, axis = 0)
-        self.error_cov = np.std(self.error, axis = 0)
-
-    def plot_trajectories(self, hidden_path, coords_to_plot, show = False, file_path = None, title = None):
-        plot.SignalPlotter(signals = [hidden_path, self.observed_path, self.computed_trajectory])\
-            .plot_signals(labels = ['hidden', 'observed', 'computed'], styles = [{'linestyle':'solid'}, {'marker':'x'}, {'marker':'o'}],\
-            plt_fns = ['plot', 'scatter', 'scatter'], colors = ['black', 'blue', 'red'], coords_to_plot = coords_to_plot,\
-            show = show, file_path = file_path, title = title)
-
-    def plot_error(self, show = False, file_path = None, title = None):
-        plot.SignalPlotter(signals = [abs(self.error)]).plot_signals(labels = ['absolute error'], styles = [{'linestyle':'solid'}],\
-            plt_fns = ['plot'], colors = ['black'], coords_to_plot = [0], show = show, file_path = file_path, title = title)
 
 
 
@@ -414,8 +429,120 @@ class GlobalSamplingUPF(ParticleFilter):
         return self.weights
 
 
+class ImplicitPF(ParticleFilter):
+    """
+    Description:
+        Defines an implicit particle filter that uses quadratic approximation of log of p(y|x)
+    Parent class:
+        ParticleFilter
+    """
+    def __init__(self, model, particle_count, F, argmin_F, grad_F, save_trajectories = False):
+        super().__init__(model = model, particle_count = particle_count, save_trajectories = save_trajectories)
+        #self.grad = grad # gradient of F, it's a function of form f(k, x, x_prev, observation)
+        # define F = negative log of product of conditional pdfs
+        self.F  = F
+        self.argmin_F = argmin_F
+        self.grad_F = grad_F
+
+    def compute_weights(self, observation):
+        """
+        Description:
+            Updates weights according to the last observation
+        Args:
+            observation: an observation of dimension = self.dimension
+        Returns:
+            self.weights
+        """
+        if self.current_time < 1:
+            # create a new dimension to add to the particles
+            self.particles = self.model.hidden_state.sims[self.current_time].generate(self.particle_count)
+            # compute new weights
+            for i in range(self.particle_count):
+                self.weights[i] *= self.model.observation.conditional_pdf(self.current_time, observation, self.particles[i])
+
+        else:
+            for i in range(self.particle_count):
+                xi = np.random.multivariate_normal(np.zeros(self.model.hidden_state.dimension), np.identity(self.model.hidden_state.dimension))
+                # create F_i, its grad and hessian for minimization
+                F_i = lambda x: self.F(self.current_time, x, self.particles[i], observation)
+                # create the non-linear equation
+                mu_i =  self.argmin_F(self.current_time, self.particles[i], observation)
+                phi_i = F_i(mu_i)
+                rho = np.dot(xi, xi)
+                eta = xi/np.sqrt(rho)
+                f = lambda lam: F_i(mu_i + lam*eta) - phi_i - 0.5*rho
+                # solve for current particle position and compute Jacobian
+                grad_f = lambda lam: [np.dot(self.grad_F(self.current_time, mu_i + lam*eta, self.particles[i], observation), eta)]
+                lam = scipy.optimize.fsolve(f, 0.00001, fprime = grad_f)[0]
+                J = lam**(self.model.hidden_state.dimension-1)*rho**(1-0.5*self.model.hidden_state.dimension)/grad_f(lam)[0]
+                self.particles[i] = mu_i + lam*eta #** don't shift this line up
+
+                # compute weight of k-th particle
+                self.weights[i] *= np.exp(-phi_i)*abs(J)
+        # normalize weights
+        self.weights /= self.weights.sum()
+        #print(self.weights)
+        #print('w_max = {}'.format(np.max(self.weights)))
+        return self.weights
 
 
+class KalmanFilter(Filter):
+    """
+    Description:
+         A class for defining Kalman filters
+    Parent class:
+        Filter
+
+    Attributes (extra):
+        model: a Model object containing the dynamic and measurement models
+        current_time: integer-valued time starting at 0 denoting index of current hidden state
+    """
+    def __init__(self, model, mean0, cov0, jac_h_x, jac_h_n, jac_o_x, jac_o_n):
+        super().__init__(model = model)
+        self.mean = mean0
+        self.cov = cov0
+        self.zero_h = np.zeros(self.model.hidden_state.dimension)
+        self.zero_o = np.zeros(self.model.observation.dimension)
+        self.jac_h_x = jac_h_x
+        self.jac_h_n = jac_h_n
+        self.jac_o_x = jac_o_x
+        self.jac_o_n = jac_o_n
+        self.process_noise_cov = self.model.hidden_state.sigma
+        self.measurement_noise_cov = self.model.observation.sigma
+
+    def one_step_update(self, observation):
+        # prediction
+        mean_ = self.model.hidden_state.func(self.current_time, self.mean, self.zero_h)
+        F_x = self.jac_h_x(self.current_time, self.mean)
+        F_n = self.jac_h_n(self.current_time, self.mean)
+        cov_ = np.linalg.multi_dot([F_x, self.cov, F_x.T]) + np.linalg.multi_dot([F_n, self.process_noise_cov, F_n.T])
+
+        # update
+        v = observation - self.model.observation.func(self.current_time, mean_, self.zero_o)
+        H_x = self.jac_o_x(self.current_time, mean_)
+        H_n = self.jac_o_n(self.current_time, mean_)
+        S = np.linalg.multi_dot([H_x, cov_, H_x.T]) + np.linalg.multi_dot([H_n, self.measurement_noise_cov, H_n.T])
+        K = np.linalg.multi_dot([cov_, H_x.T, np.linalg.inv(S)])
+        self.mean = mean_ + np.dot(K, v)
+        self.cov = cov_ - np.linalg.multi_dot([K, S, K.T])
+
+
+    @ut.timer
+    def update(self, observations):
+        """
+        Description:
+            Updates using all the obeservations
+        Args:
+            observations: list/np.array of observations to pass to self.compute_weights
+        """
+        self.current_time = 0
+        self.computed_trajectory = []
+        self.observed_path = observations
+        for observation in self.observed_path:
+            self.one_step_update(observation = observation)
+            self.computed_trajectory.append(self.mean)
+            self.current_time += 1
+        self.computed_trajectory = np.array(self.computed_trajectory)
 
 class QuadraticImplicitPF(ParticleFilter):
     """
@@ -494,64 +621,5 @@ class QuadraticImplicitPF(ParticleFilter):
             self.trajectories = np.append(self.trajectories, [self.particles], axis = 0)
 
         self.current_time += 1
-        #print('w_max = {}'.format(np.max(self.weights)))
-        return self.weights
-
-
-
-class ImplicitPF(ParticleFilter):
-    """
-    Description:
-        Defines an implicit particle filter that uses quadratic approximation of log of p(y|x)
-    Parent class:
-        ParticleFilter
-    """
-    def __init__(self, model, particle_count, F, argmin_F, grad_F, save_trajectories = False):
-        super().__init__(model = model, particle_count = particle_count, save_trajectories = save_trajectories)
-        #self.grad = grad # gradient of F, it's a function of form f(k, x, x_prev, observation)
-        # define F = negative log of product of conditional pdfs
-        self.F  = F
-        self.argmin_F = argmin_F
-        self.grad_F = grad_F
-
-    def compute_weights(self, observation):
-        """
-        Description:
-            Updates weights according to the last observation
-        Args:
-            observation: an observation of dimension = self.dimension
-        Returns:
-            self.weights
-        """
-        if self.current_time < 1:
-            # create a new dimension to add to the particles
-            self.particles = self.model.hidden_state.sims[self.current_time].generate(self.particle_count)
-            # compute new weights
-            for i in range(self.particle_count):
-                self.weights[i] *= self.model.observation.conditional_pdf(self.current_time, observation, self.particles[i])
-
-        else:
-
-            for i in range(self.particle_count):
-                xi = np.random.multivariate_normal(np.zeros(self.model.hidden_state.dimension), np.identity(self.model.hidden_state.dimension))
-                # create F_i, its grad and hessian for minimization
-                F_i = lambda x: self.F(self.current_time, x, self.particles[i], observation)
-                # create the non-linear equation
-                mu_i =  self.argmin_F(self.current_time, self.particles[i], observation)
-                phi_i = F_i(mu_i)
-                rho = np.dot(xi, xi)
-                eta = xi/np.sqrt(rho)
-                f = lambda lam: F_i(mu_i + lam*eta) - phi_i - 0.5*rho
-                # solve for current particle position and compute Jacobian
-                grad_f = lambda lam: [np.dot(self.grad_F(self.current_time, mu_i + lam*eta, self.particles[i], observation), eta)]
-                lam = scipy.optimize.fsolve(f, 0.00001, fprime = grad_f)[0]
-                J = lam**(self.model.hidden_state.dimension-1)*rho**(1-0.5*self.model.hidden_state.dimension)/grad_f(lam)[0]
-                self.particles[i] = mu_i + lam*eta #** don't shift this line up
-
-                # compute weight of k-th particle
-                self.weights[i] *= np.exp(-phi_i)*abs(J)
-        # normalize weights
-        self.weights /= self.weights.sum()
-        #print(self.weights)
         #print('w_max = {}'.format(np.max(self.weights)))
         return self.weights

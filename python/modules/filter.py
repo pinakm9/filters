@@ -436,6 +436,10 @@ class ImplicitPF(ParticleFilter):
         Defines an implicit particle filter that uses quadratic approximation of log of p(y|x)
     Parent class:
         ParticleFilter
+    Attributes (extra):
+        F : negative log of product of two conditional pdfs, function of form f(k, x, x_prev, observation)
+        argmin_F: function to compute argmin of F when k(time), x_prev, observation are fixed
+        grad_F: function to compute gradient of F when k(time), x_prev, observation are fixed
     """
     def __init__(self, model, particle_count, F, argmin_F, grad_F, save_trajectories = False):
         super().__init__(model = model, particle_count = particle_count, save_trajectories = save_trajectories)
@@ -490,13 +494,11 @@ class ImplicitPF(ParticleFilter):
 class KalmanFilter(Filter):
     """
     Description:
-         A class for defining Kalman filters
+        A class for defining Kalman filters
     Parent class:
         Filter
-
     Attributes (extra):
-        model: a Model object containing the dynamic and measurement models
-        current_time: integer-valued time starting at 0 denoting index of current hidden state
+
     """
     def __init__(self, model, mean0, cov0, jac_h_x = None, jac_h_n = None, jac_o_x = None, jac_o_n = None):
         super().__init__(model = model)
@@ -555,8 +557,9 @@ class EnsembleKF(KalmanFilter):
         Filter
 
     Attributes (extra):
-        model: a Model object containing the dynamic and measurement models
-        current_time: integer-valued time starting at 0 denoting index of current hidden state
+        ensemble_size: number of members in the ensemble
+        ensemble: matrix containing the ensemble members in the columns
+        D: generated data matrix
     """
     def __init__(self, model, ensemble_size, jac_h_x = None, jac_h_n = None, jac_o_x = None, jac_o_n = None):
         super().__init__(model = model, mean0 = None, cov0 = None, jac_h_x = jac_h_x, jac_h_n = jac_h_n, jac_o_x = jac_o_x, jac_o_n = jac_o_n)
@@ -586,6 +589,7 @@ class EnsembleKF(KalmanFilter):
         # update ensemble
         self.ensemble += np.dot(K, self.D - np.dot(H_x, self.ensemble))
         self.mean = np.average(self.ensemble, weights = [1.0/self.ensemble_size]*self.ensemble_size, axis = 1)
+
 
 class QuadraticImplicitPF(ParticleFilter):
     """

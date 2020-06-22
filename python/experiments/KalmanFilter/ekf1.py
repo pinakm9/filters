@@ -25,8 +25,7 @@ observed_path = model.observation.generate_path(hidden_path)
 """
 Solution using an implcit particle filter
 """
-ekf = fl.KalmanFilter(model, mean0 = np.zeros(2), cov0 = np.identity(2), jac_h_x = model1.jac_h_x, jac_h_n = model1.jac_h_n,\
-                    jac_o_x = model1.jac_o_x, jac_o_n = model1.jac_o_n)
+ekf = fl.KalmanFilter(model, mean0 = np.zeros(2), cov0 = np.identity(2))
 ekf.update(observed_path)
 # plot trajectories
 image_dir = str(script_path.parent.parent.parent) + '/images/KalmanFilter/'

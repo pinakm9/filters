@@ -498,16 +498,18 @@ class KalmanFilter(Filter):
         model: a Model object containing the dynamic and measurement models
         current_time: integer-valued time starting at 0 denoting index of current hidden state
     """
-    def __init__(self, model, mean0, cov0, jac_h_x, jac_h_n, jac_o_x, jac_o_n):
+    def __init__(self, model, mean0, cov0, jac_h_x = None, jac_h_n = None, jac_o_x = None, jac_o_n = None):
         super().__init__(model = model)
         self.mean = mean0
         self.cov = cov0
         self.zero_h = np.zeros(self.model.hidden_state.dimension)
         self.zero_o = np.zeros(self.model.observation.dimension)
-        self.jac_h_x = jac_h_x
-        self.jac_h_n = jac_h_n
-        self.jac_o_x = jac_o_x
-        self.jac_o_n = jac_o_n
+        self.jac_h_x = jac_h_x if jac_h_x is not None else \
+                        lambda k, x: self.model.hidden_state.func(self.current_time, np.identity(self.model.hidden_state.dimension), self.zero_h)
+        self.jac_h_n = jac_h_n if jac_h_n is not None else lambda k, x: np.identity(self.model.hidden_state.dimension)
+        self.jac_o_x = jac_o_x if jac_o_x is not None else \
+                        lambda k, x: self.model.observation.func(self.current_time, np.identity(self.model.hidden_state.dimension), self.zero_o)
+        self.jac_o_n = jac_o_n if jac_o_n is not None else lambda k, x: np.identity(self.model.observation.dimension)
         self.process_noise_cov = self.model.hidden_state.sigma
         self.measurement_noise_cov = self.model.observation.sigma
 
@@ -556,32 +558,33 @@ class EnsembleKF(KalmanFilter):
         model: a Model object containing the dynamic and measurement models
         current_time: integer-valued time starting at 0 denoting index of current hidden state
     """
-    def __init__(self, model, ensemble_size):
-        super().__init__(model = model, mean0 = None, cov0 = None, jac_h_x = None, jac_h_n = None, jac_o_x = None, jac_o_n = None)
+    def __init__(self, model, ensemble_size, jac_h_x = None, jac_h_n = None, jac_o_x = None, jac_o_n = None):
+        super().__init__(model = model, mean0 = None, cov0 = None, jac_h_x = jac_h_x, jac_h_n = jac_h_n, jac_o_x = jac_o_x, jac_o_n = jac_o_n)
         self.ensemble_size = ensemble_size
-        self.H = self.model.observation.func(self.current_time, np.identity(self.model.hidden_state.dimension), self.zero_o)
+        #self.H = self.model.observation.func(self.current_time, np.identity(self.model.hidden_state.dimension), self.zero_o)
+        self.ensemble = np.zeros((self.model.hidden_state.dimension, self.ensemble_size))
+        self.D = np.zeros((self.model.observation.dimension, self.ensemble_size))
 
     def one_step_update(self, observation):
-        if self.current_time < 1:
-            self.ensemble = np.zeros((self.model.hidden_state.dimension, self.ensemble_size))
-            for i in range(self.ensemble_size):
-                self.ensemble[:, i] = self.model.hidden_state.sims[0].algorithm()
-            self.D = np.zeros((self.model.observation.dimension, self.ensemble_size))
-            self.mean = np.average(self.ensemble, weights = [1.0/self.ensemble_size]*self.ensemble_size, axis = 1)
-
         # create data matrix and predict new ensemble
         for i in range(self.ensemble_size):
-            self.ensemble[:, i] = self.model.hidden_state.func(self.current_time, self.ensemble[:, i], self.zero_h)
+            if self.current_time > 0:
+                self.ensemble[:, i] = self.model.hidden_state.sims[self.current_time].algorithm(self.current_time, self.ensemble[:, i])#func(self.current_time, self.ensemble[:, i], self.zero_h)
+            else:
+                self.ensemble[:, i] = self.model.hidden_state.sims[0].algorithm()
             self.D[:, i] = observation + self.model.observation.noise_sim.algorithm()
 
         # compute Kalman gain
-        A = self.ensemble - np.dot(self.mean.reshape(-1, 1), np.ones((1, self.ensemble_size)))
+        mean = np.average(self.ensemble, weights = [1.0/self.ensemble_size]*self.ensemble_size, axis = 1)
+        A = self.ensemble - np.dot(mean.reshape(-1, 1), np.ones((1, self.ensemble_size)))
         C = np.dot(A, A.T)/(self.ensemble_size - 1.0)
-        S = np.linalg.multi_dot([self.H, C, self.H.T]) + self.measurement_noise_cov
-        K = np.linalg.multi_dot([C, self.H.T, np.linalg.inv(S)])
+        H_x = self.jac_o_x(self.current_time, mean)
+        H_n = self.jac_o_n(self.current_time, mean)
+        S = np.linalg.multi_dot([H_x, C, H_x.T]) + np.linalg.multi_dot([H_n, self.measurement_noise_cov, H_n.T])#np.linalg.multi_dot([self.H, C, self.H.T]) + self.measurement_noise_cov
+        K = np.linalg.multi_dot([C, H_x.T, np.linalg.inv(S)])
 
         # update ensemble
-        self.ensemble += np.dot(K, self.D - np.dot(self.H, self.ensemble))
+        self.ensemble += np.dot(K, self.D - np.dot(H_x, self.ensemble))
         self.mean = np.average(self.ensemble, weights = [1.0/self.ensemble_size]*self.ensemble_size, axis = 1)
 
 class QuadraticImplicitPF(ParticleFilter):

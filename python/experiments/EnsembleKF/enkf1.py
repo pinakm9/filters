@@ -25,7 +25,7 @@ observed_path = model.observation.generate_path(hidden_path)
 """
 Solution using an implcit particle filter
 """
-enkf = fl.EnsembleKF(model, ensemble_size = 2000)
+enkf = fl.EnsembleKF(model, ensemble_size = 200)
 enkf.update(observed_path)
 # plot trajectories
 image_dir = str(script_path.parent.parent.parent) + '/images/EnsembleKF/'

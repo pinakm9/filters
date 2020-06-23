@@ -14,28 +14,25 @@ class Model():
         hidden_state: a MarkovChain object simulating the hidden state
         observation: an SPConditional object simulating the observations
     """
-    def __init__(self, size = None, prior = None, dynamic_algorithm = None, measurement_algorithm = None, dynamic_pdf = None, measurement_pdf = None, dynamic_model = None, measurement_model = None):
+    def __init__(self, dynamic_model, measurement_model, projection_matrix = None):
         """
         Args:
-            size: length of the MarkovChain self.hidden_state
-            prior: a Simulation object for defining the MarkovChain self.hidden_state
-            dynamic_algorithm: algorithm for defining self.hidden_state
-            measurement_algorithm: algorithm for defining self.observation
-            dynamic_pdf: p(x_k|x_(k-1)), x_k is the hidden state
-            measurement_pdf: p(y_k|x_k), y_k is the observation
             dynamic_model: MarkovChain object specifying the hidden_state model
             measurement_model: SPConditional object specifying the observation model
         """
         # create the Markov chain of hidden state X_t and observation Y_t if the models are not explicitly specified
-        if dynamic_model is None:
-            self.hidden_state = sm.MarkovChain(size = size, prior = prior, algorithm = dynamic_algorithm, conditional_pdf = dynamic_pdf)
-        else:
-            self.hidden_state = dynamic_model
-        if measurement_model is None:
-            self.observation = sm.SPConditional(conditions = self.hidden_state.sims, algorithm = measurement_algorithm, conditional_pdf = measurement_pdf)
-        else:
-            self.observation = measurement_model
-
+        self.hidden_state = dynamic_model
+        if projection_matrix is not None:
+            self.projection_matrix = projection_matrix
+            H = measurement_model.func(0, np.identity(self.hidden_state.dimension), np.zeros(measurement_model.dimension))
+            H_ = np.dot(H.T, np.linalg.inv(np.dot(H, H.T)))
+            Pi = np.dot(H_, H)
+            def proj_func(k, x, noise):
+                #print('{}, {}, {} {}'.format(np.shape(self.projection_matrix.T), np.shape(Pi), np.shape(x), np.shape(noise)))
+                return np.linalg.multi_dot([self.projection_matrix.T, Pi, x]) + noise
+            proj_sigma = np.linalg.multi_dot([self.projection_matrix.T, H_, measurement_model.sigma, H_.T, self.projection_matrix])
+            measurement_model = sm.MeasurementModel(size = measurement_model.size, func = proj_func, sigma = proj_sigma)
+        self.observation = measurement_model
 
 class Filter():
     """
@@ -510,13 +507,14 @@ class KalmanFilter(Filter):
                         lambda k, x: self.model.hidden_state.func(self.current_time, np.identity(self.model.hidden_state.dimension), self.zero_h)
         self.jac_h_n = jac_h_n if jac_h_n is not None else lambda k, x: np.identity(self.model.hidden_state.dimension)
         self.jac_o_x = jac_o_x if jac_o_x is not None else \
-                        lambda k, x: self.model.observation.func(self.current_time, np.identity(self.model.hidden_state.dimension), self.zero_o)
+                        lambda k, x: self.model.observation.func(self.current_time, np.identity(self.model.hidden_state.dimension), self.zero_h)
         self.jac_o_n = jac_o_n if jac_o_n is not None else lambda k, x: np.identity(self.model.observation.dimension)
         self.process_noise_cov = self.model.hidden_state.sigma
         self.measurement_noise_cov = self.model.observation.sigma
 
     def one_step_update(self, observation):
         # prediction
+        #print('self.jac_o_x= {}'.format(self.jac_o_x(self.current_time, self.zero_h)))
         mean_ = self.model.hidden_state.func(self.current_time, self.mean, self.zero_h)
         F_x = self.jac_h_x(self.current_time, self.mean)
         F_n = self.jac_h_n(self.current_time, self.mean)

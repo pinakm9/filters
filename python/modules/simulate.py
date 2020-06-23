@@ -550,7 +550,7 @@ class DynamicModel(MarkovChain):
         z ~ zero mean noise
         Parent class: MarkovChain
     """
-    def __init__(self, size, prior, func, noise_sim, sigma, conditional_pdf):
+    def __init__(self, size, prior, func, sigma, noise_sim = None, conditional_pdf = None):
         """
         Args:
             size: number of random variables in the chain
@@ -564,9 +564,13 @@ class DynamicModel(MarkovChain):
         self.func = func
         self.sigma = sigma
         self.dimension = np.shape(sigma)[0]
-        self.mu = np.zeros(self.dimension)
-        self.noise_sim = noise_sim
+        if noise_sim is not None:
+            self.noise_sim = noise_sim
+        else:
+            self.noise_sim = Simulation(algorithm = lambda *args: np.random.multivariate_normal(mean = np.zeros(self.dimension), cov = self.sigma))
 
+        if conditional_pdf is None:
+            conditional_pdf = lambda k, x, past: scipy.stats.multivariate_normal.pdf(x, mean = self.func(k, past, np.zeros(self.dimension)), cov = self.sigma)
         # figure out simulation algorithm
         def algorithm(k, past):
             return self.func(k, past, self.noise_sim.algorithm())
@@ -580,7 +584,7 @@ class MeasurementModel(SPConditional):
         and z ~ zero mean noise
         Parent class: SPConditional
     """
-    def __init__(self, size, func, noise_sim, sigma, conditional_pdf):
+    def __init__(self, size, func, sigma, noise_sim = None, conditional_pdf = None):
         """
         Args:
             size: number of random variables in the chain
@@ -592,9 +596,13 @@ class MeasurementModel(SPConditional):
         self.func = func
         self.sigma = sigma
         self.dimension = np.shape(sigma)[0]
-        self.mu = np.zeros(self.dimension)
-        self.noise_sim = noise_sim
+        if noise_sim is not None:
+            self.noise_sim = noise_sim
+        else:
+            self.noise_sim = Simulation(algorithm = lambda *args: np.random.multivariate_normal(mean = np.zeros(self.dimension), cov = self.sigma))
 
+        if conditional_pdf is None:
+            conditional_pdf = lambda k, y, condition: scipy.stats.multivariate_normal.pdf(y, mean = self.func(k, condition, np.zeros(self.dimension)), cov = self.sigma)
         # figure out simulation algorithm
         def algorithm(k, condition):
             return self.func(k, condition, self.noise_sim.algorithm())

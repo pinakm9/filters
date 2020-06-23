@@ -2,13 +2,17 @@
 import sys
 from pathlib import Path
 from os.path import dirname, realpath
-sys.path.insert(0, str(Path(dirname(realpath(__file__))).parent) + '/modules')
+script_path = Path(dirname(realpath(__file__)))
+module_dir = str(script_path.parent)
+sys.path.insert(0, module_dir + '/modules')
+
 # import remaining modules
 import simulate as sm
 import filter as fl
 import numpy as np
 import scipy
-import plot
+import plot as plot
+
 """
 A 1D non-linear problem
 """

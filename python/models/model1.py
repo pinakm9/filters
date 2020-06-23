@@ -2,45 +2,44 @@
 import sys
 from pathlib import Path
 from os.path import dirname, realpath
-sys.path.insert(0, str(Path(dirname(realpath(__file__))).parent) + '/modules')
-# import remaining modules
+script_path = Path(dirname(realpath(__file__)))
+module_dir = str(script_path.parent)
+sys.path.insert(0, module_dir + '/modules')
 
+# import remaining modules
 import simulate as sm
 import filter as fl
 import numpy as np
 import scipy
 import plot as plot
 
-
 """
 A 2D problem with known solution
 """
 # Some useful constants for defining the problem
 d = 2
-eps = 0.01
-mu = np.zeros(d)
 zero = np.zeros(d)
 id = np.identity(d)
 
 # Define the dynamic model
 cov_h = id
-prior = sm.Simulation(target_rv = sm.RVContinuous(name = 'normal', mean = mu, cov = id), algorithm = lambda *args: np.random.multivariate_normal(mu, id))
+prior = sm.Simulation(target_rv = sm.RVContinuous(name = 'normal', mean = zero, cov = id), algorithm = lambda *args: np.random.multivariate_normal(zero, id))
 A = np.array([[1.0, 1.5],[0, 1.0]])
 func_h = lambda k, x, noise: np.dot(A, x) + noise
-noise_sim_h = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mean = mu, cov = cov_h))
-conditional_pdf_h = lambda k, x, past: scipy.stats.multivariate_normal.pdf(x, mean = func_h(k, past, zero), cov = cov_h)
+#noise_sim_h = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mean = zero, cov = cov_h))
+#conditional_pdf_h = lambda k, x, past: scipy.stats.multivariate_normal.pdf(x, mean = func_h(k, past, zero), cov = cov_h)
 
 # Define the observation model
-cov_o = eps*id
+cov_o = 0.01*id
 H = np.array([[1.0, 1.0],[0.0, 2.0]])
 func_o = lambda k, x, noise: np.dot(H, x) + noise
-noise_sim_o = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mean = mu, cov = cov_o))
-conditional_pdf_o = lambda k, y, condition: scipy.stats.multivariate_normal.pdf(y, mean = func_o(k, condition, zero), cov = cov_o)
+#noise_sim_o = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mean = zero, cov = cov_o))
+#conditional_pdf_o = lambda k, y, condition: scipy.stats.multivariate_normal.pdf(y, mean = func_o(k, condition, zero), cov = cov_o)
 
 # creates a Model object to feed the filter / combine the models
 def model(size):
-    mc = sm.DynamicModel(size = size, prior = prior, func = func_h, noise_sim = noise_sim_h, sigma = cov_h, conditional_pdf = conditional_pdf_h)
-    om = sm.MeasurementModel(size = size, func = func_o, noise_sim = noise_sim_o, sigma = cov_o, conditional_pdf = conditional_pdf_o)
+    mc = sm.DynamicModel(size = size, prior = prior, func = func_h, sigma = cov_h)#, noise_sim = noise_sim_h,  conditional_pdf = conditional_pdf_h)
+    om = sm.MeasurementModel(size = size, func = func_o, sigma = cov_o)#, noise_sim = noise_sim_o,  conditional_pdf = conditional_pdf_o)
     return fl.Model(dynamic_model = mc, measurement_model = om)
 
 cov_h_i = np.linalg.inv(cov_h)
@@ -97,7 +96,7 @@ def one_step_predict_update(m, P, y):
     P_ -= np.linalg.multi_dot([K, S, K.T])
     return m_, P_
 
-def update(Y, m0 = mu, P0 = id):
+def update(Y, m0 = zero, P0 = id):
     m, P = m0, P0
     means = [m]
     covs = [P]

@@ -3,7 +3,8 @@
 import sys
 from pathlib import Path
 from os.path import dirname, realpath
-module_dir = str(Path(dirname(realpath(__file__))).parent.parent)
+script_path = Path(dirname(realpath(__file__)))
+module_dir = str(script_path.parent.parent)
 sys.path.insert(0, module_dir + '/modules')
 sys.path.insert(0, module_dir + '/models')
 # import remaining modules
@@ -25,23 +26,23 @@ observed_path = model.observation.generate_path(hidden_path)
 Solution using an implcit particle filter
 """
 
-pf = fl.ImplicitPF(model, particle_count = 200, F = model1.F, argmin_F= model1.argmin_F, grad_F = model1.grad_F)
-pf.update(observed_path, threshold_factor = 0.1, method = 'mean')
+ipf = fl.ImplicitPF(model, particle_count = 200, F = model1.F, argmin_F= model1.argmin_F, grad_F = model1.grad_F)
+ipf.update(observed_path, threshold_factor = 0.1, method = 'mean')
 
 # plot true vs computed mean
+image_dir = str(script_path.parent.parent.parent) + '/images/ImplicitPF/'
 exact_final_mean = model1.update(observed_path[1:])[0][-1]
-pf_final_mean = pf.computed_trajectory[-1]
-plt.scatter(*zip(*pf.particles))
+ipf_final_mean = ipf.computed_trajectory[-1]
+plt.scatter(*zip(*ipf.particles))
 plt.scatter([exact_final_mean[0]], [exact_final_mean[1]], label = 'True mean', color = 'red')
-plt.scatter([pf_final_mean[0]], [pf_final_mean[1]], label = 'Filter mean', color = 'green')
-plt.title('Mean at time = {}, #particles = {}'.format(s-1, pf.particle_count))
+plt.scatter([ipf_final_mean[0]], [ipf_final_mean[1]], label = 'Filter mean', color = 'green')
+plt.title('Mean at time = {}, #particles = {}'.format(s-1, ipf.particle_count))
 plt.legend()
-plt.savefig('../images/gsupf_results/linear_final_mean.png')
+plt.savefig(image_dir + 'linear_final_mean.png')
 plt.show()
 
 # plot trajectories
-pf.plot_trajectories(hidden_path, coords_to_plot = [0, 1], show = True, \
-            file_path = '../images/gsupf_results/linear_trajectories.png')
-pf.compute_error(hidden_path)
-pf.plot_error(show = True, file_path = '../images/gsupf_results/linear_abs_err_vs_time.png')
-print("Error in (final) mean = {}".format(np.linalg.norm(pf_final_mean - exact_final_mean)))
+ipf.plot_trajectories(hidden_path, coords_to_plot = [0, 1], show = True, file_path = image_dir + 'linear_trajectories.png')
+ipf.compute_error(hidden_path)
+ipf.plot_error(show = True, file_path = image_dir + 'linear_abs_err_vs_time.png')
+print("Error in (final) mean = {}".format(np.linalg.norm(ipf_final_mean - exact_final_mean)))

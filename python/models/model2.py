@@ -20,13 +20,14 @@ two, zero = np.array([2.0]), np.array([0.0]),
 # Define the dynamic model
 x_0 = np.array([1.0])
 alpha, theta, w  = 3, 0.5, 0.04
+sigma_h = alpha*theta**2
 prior = sm.Simulation(algorithm = lambda *args: x_0)
 process_noise = sm.Simulation(algorithm = lambda* args: np.array([np.random.gamma(shape = alpha, scale = theta)]))
 func_h = lambda k, x, noise: np.array([1.0 + np.sin(w*np.pi*k)]) + 0.5*x + noise
 conditional_pdf_h = lambda k, x, past: scipy.stats.gamma.pdf(x[0], a = alpha, loc = func_h(k, past, zero)[0], scale = theta)
 
 # Define the observation model
-sigma_o, threshold = 0.0001, 5 #int(size/2)
+sigma_o, threshold = 0.01, 5 #int(size/2)
 observation_noise = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal([0.0], [[sigma_o]]))
 f1 = lambda x, noise: 0.2*x**2 + noise
 f2 = lambda x, noise: 0.5*x + noise - two
@@ -48,23 +49,28 @@ def conditional_pdf_o(k, y, condition):
 def F(k, x, x_prev, observation):
     a = x - func_h(k, x_prev, zero)
     b = observation - func_o(k, x, zero)
-    return (a/theta - (alpha - 1.0)*np.log(a) + 0.5*b**2/sigma_o)[0]
+    return (0.5*(a**2/sigma_h + b**2/sigma_o))[0] #(a/theta - (alpha - 1.0)*np.log(a) + 0.5*b**2/sigma_o)[0] #
 
 def grad_F(k, x, x_prev, observation):
     a = x - func_h(k, x_prev, zero)
     b = observation - func_o(k, x, zero)
+    return a/sigma_h - b/sigma_o
+    """
     if k < threshold:
-        return np.array([1.0 - (alpha - 1.0)/a[0] - (b[0]/sigma_o)*(0.4*x[0])])
+        return np.array([1.0 - (alpha - 1.0)/a[0] - (b[0]/sigma_o)*(0.4*x[0])]) #
     else:
         return np.array([1.0 - (alpha - 1.0)/a[0] - (b[0]/sigma_o)*0.5])
-
+    """
 def argmin_F(k, x_prev, observation):
     f = lambda x: F(k, x, x_prev, observation)
-    return np.array([scipy.optimize.minimize(fun = f, x0 = alpha + np.sin(w*np.pi*k) + 0.5*x_prev).x])
+    if k < threshold:
+        return np.array([scipy.optimize.minimize(fun = f, x0 = [5*observation]).x])
+    else:
+        return np.array([scipy.optimize.minimize(fun = f, x0 =[4.0 + 2*observation]).x])
 
 
 # creates a Model object to feed the filter / combine the models
 def model(size):
-    mc = sm.DynamicModel(size = size, prior = prior, func = func_h, sigma = np.array([[alpha*theta**2]]), noise_sim = process_noise, conditional_pdf = conditional_pdf_h)
+    mc = sm.DynamicModel(size = size, prior = prior, func = func_h, sigma = np.array([[sigma_h]]))#, noise_sim = process_noise, conditional_pdf = conditional_pdf_h)
     om = sm.MeasurementModel(size = size, func = func_o, sigma = np.array([[sigma_o]]), noise_sim = observation_noise, conditional_pdf = conditional_pdf_o)
     return fl.Model(dynamic_model = mc, measurement_model = om)

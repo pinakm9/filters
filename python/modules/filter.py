@@ -364,7 +364,7 @@ class GlobalSamplingUPF(ParticleFilter):
         # normalize weights
         #print('current time = {} and weights = {}'.format(self.current_time, self.weights[:10]))
         self.weights /= self.weights.sum()
-        print('w_max = {}'.format(max(self.weights)))
+        #print('w_max = {}'.format(max(self.weights)))
         # compute mean and variance of the particles
         self.importance_mean = np.average(self.particles, weights = self.weights, axis = 0)
         self.importance_cov = np.zeros((self.dimension, self.dimension))
@@ -475,7 +475,7 @@ class ImplicitPF(ParticleFilter):
                 f = lambda lam: F_i(mu_i + lam*eta) - phi_i - 0.5*rho
                 # solve for current particle position and compute Jacobian
                 grad_f = lambda lam: [np.dot(self.grad_F(self.current_time, mu_i + lam*eta, self.particles[i], observation), eta)]
-                lam = scipy.optimize.fsolve(f, 0.00001, fprime = grad_f)[0]
+                lam = scipy.optimize.fsolve(f, 0.0, fprime = grad_f)[0]
                 J = lam**(self.model.hidden_state.dimension-1)*rho**(1-0.5*self.model.hidden_state.dimension)/grad_f(lam)[0]
                 self.particles[i] = mu_i + lam*eta #** don't shift this line up
 

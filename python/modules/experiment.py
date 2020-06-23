@@ -17,13 +17,13 @@ def experiment(model, filter, particle_counts, num_exprs, resampling_threshold, 
             observed_path = model.observation.generate_path(hidden_path)
             print('\rusing {:04} particles: experiment# {:03d}'.format(particle_count, expr), end = '')
             # create particle filter
-            pf = getattr(fl, filter)(model, particle_count = particle_count, **filter_kwargs)
+            fltr = getattr(fl, filter)(model, particle_count = particle_count, **filter_kwargs)
             try:
-                pf.update(observed_path , threshold_factor = resampling_threshold, method = 'mean')
-                pf.compute_error(hidden_path)
-                error += pf.rmse
+                fltr.update(observed_path , threshold_factor = resampling_threshold, method = 'mean')
+                fltr.compute_error(hidden_path)
+                error += fltr.rmse
                 if final_exact_mean is not None:
-                    err_m += np.linalg.norm(final_exact_mean(observed_path[1:]) - pf.computed_trajectory[-1])
+                    err_m += np.linalg.norm(final_exact_mean(observed_path[1:]) - fltr.computed_trajectory[-1])
                 expr += 1
             except:
                 pass
@@ -33,25 +33,23 @@ def experiment(model, filter, particle_counts, num_exprs, resampling_threshold, 
     # print a newline for clarity
     print()
     # plot average error vs particle_count
-    x = np.linspace(min(particle_counts), max(particle_counts), 100)
-    #y = scipy.interpolate.make_interp_spline(particle_counts, rmse)(x)
-    plt.plot(particle_counts, rmse)
-    plt.xlabel('number of particles')
-    plt.ylabel('average rmse')
-    if titles is not None:
-        plt.title(titles[0])
     if file_paths is not None:
-        plt.savefig(file_paths[0])
-
-    # plot error in mean vs particle_count
-    if final_exact_mean is not None:
-        plt.clf()
-        #y = scipy.interpolate.make_interp_spline(particle_counts, err_in_mean)(x)
-        plt.plot(particle_counts, err_in_mean)
+        x = np.linspace(min(particle_counts), max(particle_counts), 100)
+        #y = scipy.interpolate.make_interp_spline(particle_counts, rmse)(x)
+        plt.plot(particle_counts, rmse)
         plt.xlabel('number of particles')
-        plt.ylabel('error in mean')
-        if titles is not None and len(titles) > 0:
-            plt.title(titles[1])
-        if file_paths is not None and len(file_paths) > 0:
+        plt.ylabel('average rmse')
+        if titles is not None:
+            plt.title(titles[0])
+        plt.savefig(file_paths[0])
+        # plot error in mean vs particle_count
+        if len(file_paths) > 0 and final_exact_mean is not None:
+            plt.clf()
+            #y = scipy.interpolate.make_interp_spline(particle_counts, err_in_mean)(x)
+            plt.plot(particle_counts, err_in_mean)
+            plt.xlabel('number of particles')
+            plt.ylabel('error in mean')
+            if titles is not None and len(titles) > 0:
+                plt.title(titles[1])
             plt.savefig(file_paths[1])
     return rmse, err_in_mean

@@ -3,7 +3,8 @@
 import sys
 from pathlib import Path
 from os.path import dirname, realpath
-module_dir = str(Path(dirname(realpath(__file__))).parent.parent)
+script_path = Path(dirname(realpath(__file__)))
+module_dir = str(script_path.parent.parent)
 sys.path.insert(0, module_dir + '/modules')
 sys.path.insert(0, module_dir + '/models')
 # import remaining modules
@@ -29,11 +30,12 @@ plot.SignalPlotter(signals = [hidden_path, observed_path]).plot_signals(labels =
 """
 Solution using a GS-UPF
 """
-pf = fl.ImplicitPF(model, particle_count = 200, F = model2.F, argmin_F= model2.argmin_F, grad_F = model2.grad_F)
-pf.update(observed_path, threshold_factor = 0.1, method = 'mean')
+ipf = fl.ImplicitPF(model, particle_count = 200, F = model2.F, argmin_F = model2.argmin_F, grad_F = model2.grad_F)
+ipf.update(observed_path, threshold_factor = 0.1, method = 'mean')
 
 # plot trajectories
-pf.plot_trajectories(hidden_path, coords_to_plot = [0], show = True, \
-            file_path = '../images/gsupf_results/model2_trajectories.png')
-pf.compute_error(hidden_path)
-pf.plot_error(show = True, file_path = '../images/gsupf_results/model2_abs_err_vs_time.png')
+image_dir = str(script_path.parent.parent.parent) + '/images/ImplicitPF/'
+model_name = 'model2'
+ipf.plot_trajectories(hidden_path, coords_to_plot = [0], show = True, file_path = image_dir + model_name + '_trajectories.png')
+ipf.compute_error(hidden_path)
+ipf.plot_error(show = True, file_path = image_dir + model_name + '_abs_err_vs_time.png')

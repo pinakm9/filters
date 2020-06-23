@@ -36,4 +36,4 @@ ekf.compute_error(hidden_path)
 ekf.plot_error(show = True, file_path = image_dir +  model_name + '_abs_err_vs_time.png')
 ekf_final_mean = ekf.computed_trajectory[-1]
 exact_final_mean = model4.proj_update(observed_path[1:])[0][-1]
-print("Error in (final) mean = {}".format(np.linalg.norm(ekf_final_mean - exact_final_mean)))
+print("Error in (final) mean = {}\nRMSE = {}".format(np.linalg.norm(ekf_final_mean - exact_final_mean), ekf.rmse))

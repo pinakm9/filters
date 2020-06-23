@@ -22,10 +22,11 @@ zero = np.zeros(d)
 id = np.identity(d)
 
 # Define the dynamic model
-cov_h = id
+cov_h = 0.05*id
 prior = sm.Simulation(target_rv = sm.RVContinuous(name = 'normal', mean = zero, cov = id), algorithm = lambda *args: np.random.multivariate_normal(zero, id))
-A = np.diag([0, 0.04] + [-100.0]*(d-2))
+A = np.diag([0, 0.04] + [-10.0]*(d-2))
 eA = scipy.linalg.expm(A)
+#print(eA)
 func_h = lambda k, x, noise: np.dot(eA, x) + noise
 #noise_sim_h = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mean = zero, cov = cov_h))
 #conditional_pdf_h = lambda k, x, past: scipy.stats.multivariate_normal.pdf(x, mean = func_h(k, past, zero), cov = cov_h)

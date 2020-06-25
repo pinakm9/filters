@@ -30,7 +30,7 @@ ekf.update(observed_path)
 # plot trajectories
 image_dir = str(script_path.parent.parent.parent) + '/images/KalmanFilter/'
 model_name = 'proj_model4'
-ekf.plot_trajectories(hidden_path, coords_to_plot = [0, 1], show = True, \
+ekf.plot_trajectories(hidden_path, coords_to_plot = [0, 2, 5], show = True, \
             file_path = image_dir + model_name + '_trajectories.png')
 ekf.compute_error(hidden_path)
 ekf.plot_error(show = True, file_path = image_dir +  model_name + '_abs_err_vs_time.png')

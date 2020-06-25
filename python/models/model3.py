@@ -17,7 +17,7 @@ import plot as plot
 A 2D non-linear problem (Henon map)
 """
 # Create a Markov chain
-a, b, eps  = 0.5, 0.1, 1
+a, b, eps  = 0.5, 0.1, 0.0001
 mu, id, zero =  np.zeros(2), np.identity(2), np.zeros(2)
 prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mu, id))
 process_noise = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mu, eps*id))
@@ -48,6 +48,12 @@ def argmin_F(k, x_prev, observation):
     f = lambda x: F(k, x, x_prev, observation)
     x0 = np.linalg.solve(A, func_h(k, x_prev, zero)/eps + np.dot(H.T, observation)/delta)
     return scipy.optimize.minimize(fun = f, x0 = x0).x
+
+def jac_h_x(k, x):
+    return np.array([[-2*a*x[0], 1.0], [b, 0.0]])
+
+def jac_o_x(k, x):
+    return H + 0.5*np.diag(np.cos(x))
 
 
 # creates a Model object to feed the filter / combine the models

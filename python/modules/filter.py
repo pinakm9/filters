@@ -24,7 +24,7 @@ class Model():
         self.hidden_state = dynamic_model
         if projection_matrix is not None:
             self.projection_matrix = projection_matrix
-            H = measurement_model.func(0, np.identity(self.hidden_state.dimension), np.zeros(measurement_model.dimension))
+            H = measurement_model.func(0, np.identity(self.hidden_state.dimension), np.zeros(self.hidden_state.dimension))
             H_ = np.dot(H.T, np.linalg.inv(np.dot(H, H.T)))
             Pi = np.dot(H_, H)
             def proj_func(k, x, noise):
@@ -475,7 +475,7 @@ class ImplicitPF(ParticleFilter):
                 f = lambda lam: F_i(mu_i + lam*eta) - phi_i - 0.5*rho
                 # solve for current particle position and compute Jacobian
                 grad_f = lambda lam: [np.dot(self.grad_F(self.current_time, mu_i + lam*eta, self.particles[i], observation), eta)]
-                lam = scipy.optimize.fsolve(f, 0.0, fprime = grad_f)[0]
+                lam = scipy.optimize.fsolve(f, 0.00001, fprime = grad_f)[0]
                 J = lam**(self.model.hidden_state.dimension-1)*rho**(1-0.5*self.model.hidden_state.dimension)/grad_f(lam)[0]
                 self.particles[i] = mu_i + lam*eta #** don't shift this line up
 

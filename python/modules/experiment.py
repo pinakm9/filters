@@ -4,9 +4,11 @@ import scipy
 import utility as ut
 import matplotlib.pyplot as plt
 import plot
+import warnings
+warnings.filterwarnings("error")
 
 @ut.timer
-def experiment(model, filter, particle_counts, num_exprs, resampling_threshold, titles = None, file_paths = None, final_exact_mean = None, **filter_kwargs):
+def experiment(model, filter, particle_counts, num_exprs, resampling_threshold, titles = None, file_paths = None, final_exact_mean = None, max_path = 1e4, **filter_kwargs):
     # compute average error for each particle count
     rmse, err_in_mean = [], []
     for particle_count in particle_counts:
@@ -15,18 +17,22 @@ def experiment(model, filter, particle_counts, num_exprs, resampling_threshold, 
             # Generate paths
             hidden_path = model.hidden_state.generate_path()
             observed_path = model.observation.generate_path(hidden_path)
-            print('\rusing {:04} particles: experiment# {:03d}'.format(particle_count, expr), end = '')
-            # create particle filter
-            fltr = getattr(fl, filter)(model, particle_count = particle_count, **filter_kwargs)
-            try:
-                fltr.update(observed_path , threshold_factor = resampling_threshold, method = 'mean')
-                fltr.compute_error(hidden_path)
-                error += fltr.rmse
-                if final_exact_mean is not None:
-                    err_m += np.linalg.norm(final_exact_mean(observed_path[1:]) - fltr.computed_trajectory[-1])
-                expr += 1
-            except:
-                pass
+            if np.all(abs(hidden_path) < max_path):
+                print('\rusing {:04} particles: experiment# {:03d}'.format(particle_count, expr), end = '')
+                # create particle filter
+                fltr = getattr(fl, filter)(model, particle_count, **filter_kwargs)
+                try:
+                    if filter == 'EnsembleKF':
+                        fltr.update(observed_path)
+                    else:
+                        fltr.update(observed_path , threshold_factor = resampling_threshold, method = 'mean')
+                    fltr.compute_error(hidden_path)
+                    error += fltr.rmse
+                    if final_exact_mean is not None:
+                        err_m += np.linalg.norm(final_exact_mean(observed_path[1:]) - fltr.computed_trajectory[-1])
+                    expr += 1
+                except:
+                    pass
         rmse.append(error/num_exprs)
         if final_exact_mean is not None:
             err_in_mean.append(err_m/num_exprs)

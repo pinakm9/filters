@@ -31,6 +31,7 @@ ipf.update(observed_path, threshold_factor = 0.1, method = 'mean')
 
 # plot true vs computed mean
 image_dir = str(script_path.parent.parent.parent) + '/images/ImplicitPF/'
+model_name = 'model1'
 exact_final_mean = model1.update(observed_path[1:])[0][-1]
 ipf_final_mean = ipf.computed_trajectory[-1]
 plt.scatter(*zip(*ipf.particles))
@@ -38,11 +39,11 @@ plt.scatter([exact_final_mean[0]], [exact_final_mean[1]], label = 'True mean', c
 plt.scatter([ipf_final_mean[0]], [ipf_final_mean[1]], label = 'Filter mean', color = 'green')
 plt.title('Mean at time = {}, #particles = {}'.format(s-1, ipf.particle_count))
 plt.legend()
-plt.savefig(image_dir + 'linear_final_mean.png')
+plt.savefig(image_dir + model_name + '_final_mean.png')
 plt.show()
 
 # plot trajectories
-ipf.plot_trajectories(hidden_path, coords_to_plot = [0, 1], show = True, file_path = image_dir + 'linear_trajectories.png')
+ipf.plot_trajectories(hidden_path, coords_to_plot = [0, 1], show = True, file_path = image_dir + model_name + '_trajectories.png')
 ipf.compute_error(hidden_path)
-ipf.plot_error(show = True, file_path = image_dir + 'linear_abs_err_vs_time.png')
+ipf.plot_error(show = True, file_path = image_dir + model_name + '_abs_err_vs_time.png')
 print("Error in (final) mean = {}".format(np.linalg.norm(ipf_final_mean - exact_final_mean)))

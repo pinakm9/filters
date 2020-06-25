@@ -17,14 +17,14 @@ import plot as plot
 A 2D problem with known solution
 """
 # Some useful constants for defining the problem
-d = 10 # dimension of the problem, must be even
+d = 100 # dimension of the problem, must be even
 zero = np.zeros(d)
 id = np.identity(d)
 
 # Define the dynamic model
 cov_h = 0.05*id
 prior = sm.Simulation(target_rv = sm.RVContinuous(name = 'normal', mean = zero, cov = id), algorithm = lambda *args: np.random.multivariate_normal(zero, id))
-A = np.diag([0, 0.04] + [-10.0]*(d-2))
+A = np.diag([0, 0.04] + [-100.0] + [-100.0]*(d-3))
 eA = scipy.linalg.expm(A)
 #print(eA)
 func_h = lambda k, x, noise: np.dot(eA, x) + noise
@@ -32,8 +32,8 @@ func_h = lambda k, x, noise: np.dot(eA, x) + noise
 #conditional_pdf_h = lambda k, x, past: scipy.stats.multivariate_normal.pdf(x, mean = func_h(k, past, zero), cov = cov_h)
 
 # Define the observation model
-cov_o = 0.01*id
-matrices = [np.array([[1.0, 1.0],[0.0, 2.0]])]*(int(d/2))
+cov_o = 0.05**2*id
+matrices = [np.array([[1.0, 0.0],[0.0, 1.0]])]*(int(d/2))
 H = scipy.linalg.block_diag(*matrices)
 #print('Determinant of H = {}'.format(np.linalg.det(H)))
 func_o = lambda k, x, noise: np.dot(H, x) + noise
@@ -89,6 +89,9 @@ projection_matrix = np.zeros((d, 2))
 projection_matrix[0][0] = 1.0
 projection_matrix[1][1] = 1.0
 
+
+#print(np.dot(projection_matrix, projection_matrix.T))
+
 def proj_model(size):
     mc = sm.DynamicModel(size = size, prior = prior, func = func_h, sigma = cov_h)#, noise_sim = noise_sim_h,  conditional_pdf = conditional_pdf_h)
     om = sm.MeasurementModel(size = size, func = func_o, sigma = cov_o)#, noise_sim = noise_sim_o,  conditional_pdf = conditional_pdf_o)
@@ -132,6 +135,9 @@ def proj_jac_o_x(h, x):
 
 def proj_jac_o_n(k, x):
     return id
+
+def proj_obeserved_path(observed_path):
+    return np.array([np.dot(proj_H, y) for y in observed_path])
 """
 Exact solution to the filtering problem
 """

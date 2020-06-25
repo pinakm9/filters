@@ -16,7 +16,7 @@ import utility as ut
 import matplotlib.pyplot as plt
 import plot
 import model3
-np.random.seed(16)
+#np.random.seed(16)
 """
 Generate paths
 """
@@ -24,17 +24,19 @@ s = int(sys.argv[1])
 model, a, b = model3.model(size = s)
 hidden_path = model.hidden_state.generate_path()
 observed_path = model.observation.generate_path(hidden_path)
-#"""
+"""
 plot.SignalPlotter(signals = [hidden_path, observed_path]).plot_signals(labels = ['hidden', 'observed'],\
     styles = [{'linestyle': 'solid'}, {'marker': 'x'}], colors = ['black', 'blue'],  coords_to_plot = [0, 1], show = True)
-#"""
 """
-Solution using a GS-UPF
 """
-pf = fl.ImplicitPF(model, particle_count = 2000, F = model3.F, argmin_F= model3.argmin_F, grad_F = model3.grad_F)
-pf.update(observed_path, threshold_factor = 0.1, method = 'mean')
+Solution using an implicit particle filter
+"""
+ipf = fl.ImplicitPF(model, particle_count = 200, F = model3.F, argmin_F = model3.argmin_F, grad_F = model3.grad_F)
+ipf.update(observed_path, threshold_factor = 0.1, method = 'mean')
 
 # plot trajectories
-pf.plot_trajectories(hidden_path, coords_to_plot = [0], show = True, file_path = image_dir + '/images/ImplicitPF/model2_trajectories.png')
-pf.compute_error(hidden_path)
-pf.plot_error(show = True, file_path = image_dir + '/images/ImplicitPF/model2_abs_err_vs_time.png')
+image_dir = str(script_path.parent.parent.parent) + '/images/ImplicitPF/'
+model_name = 'model3'
+ipf.plot_trajectories(hidden_path, coords_to_plot = [0, 1], show = True, file_path = image_dir + model_name + '_trajectories.png')
+ipf.compute_error(hidden_path)
+ipf.plot_error(show = True, file_path = image_dir + model_name + '_abs_err_vs_time.png')

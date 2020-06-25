@@ -105,7 +105,10 @@ class SignalPlotter(object):
             for i in range(num_rows):
                 ax.append(fig.add_subplot(num_rows, 1, i+1))
                 for j, signal in enumerate(self.signals):
-                    signal = ut.Picker(signal[:, coords_to_plot[i]]).equidistant(objs_to_pick = max_pts)
+                    try:
+                        signal = ut.Picker(signal[:, coords_to_plot[i]]).equidistant(objs_to_pick = max_pts)
+                    except:
+                        continue
                     getattr(ax[i], plt_fns[j])(t, signal, label = labels[j], color = colors[j], **styles[j])
                     ax[i].set(ylabel = 'dimension {}'.format(coords_to_plot[i] + 1))
                     ax[i].yaxis.set_label_position('right')

@@ -85,3 +85,13 @@ def TV_dist_MC_avg(p, q, samples, batch):
 			result +=np.abs(p(x)-q(x))
 		dist += result/batch
 	return 0.5*dist/(len(samples)/batch)
+
+def random_color(as_str=True, alpha=0.5):
+	rgb = [random.randint(0,255),
+		   random.randint(0,255),
+		   random.randint(0,255)]
+	if as_str:
+		return "rgba"+str(tuple(rgb+[alpha]))
+	else:
+		# Normalize & listify
+		return list(np.array(rgb)/255) + [alpha]

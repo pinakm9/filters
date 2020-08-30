@@ -140,19 +140,15 @@ class ParticleFilter(Filter):
 
 
     def systematic_resample(self):
-        """ Performs the systemic resampling algorithm used by particle filters.
-        This algorithm separates the sample space into N divisions. A single random
-        offset is used to to choose where to sample from for all divisions. This
-        guarantees that every sample is exactly 1/N apart.
-        Parameters
-        ----------
-        weights : list-like of float
-            list of weights as floats
-        Returns
-        -------
-        indexes : ndarray of ints
-            array of indexes into the weights defining the resample. i.e. the
-            index of the zeroth resample is indexes[0], etc.
+        """
+        Description:
+            Performs the systemic resampling algorithm used by particle filters.
+            This algorithm separates the sample space into N divisions. A single random
+            offset is used to to choose where to sample from for all divisions. This
+            guarantees that every sample is exactly 1/N apart.
+
+        Returns:
+            number of unique particles after resampling
         """
 
         # make N subdivisions, and choose positions with a consistent random offset
@@ -171,7 +167,8 @@ class ParticleFilter(Filter):
         self.weights = np.ones(self.particle_count)/self.particle_count
         return len(np.unique(indices))
 
-    def resample(self, threshold_factor = 0.1):
+
+    def resample(self, threshold_factor = 0.1, method = 'systematic'):
         """
         Description:
             Performs resampling
@@ -183,16 +180,7 @@ class ParticleFilter(Filter):
         # resample if effective particle count criterion is met
         if 1.0/(self.weights**2).sum() < threshold_factor*self.particle_count:
             indices = np.random.choice(self.particle_count, self.particle_count, p = self.weights)
-            u = self.systematic_resample()#np.take(a = self.particles, indices = indices, axis = 0)
-            #print("\n\n Num particles = {} \n\n".format(u))
-            #print("resampled weights:", self.weights.sum(), np.max(self.weights))
-            # create weight map for faster computation
-            """
-            index_map = dict(cl.Counter(indices))
-            self.weight_map = np.zeros((len(index_map), 2))
-            for i, (key, value) in enumerate(index_map.items()):
-                self.weight_map[i] = [key, value*self.weights[0]]
-            """
+            getattr(self, method + '_resample')()
             return True # resampling occurred
         return False # resampling didn't occur
 
@@ -245,6 +233,39 @@ class ParticleFilter(Filter):
                 self.compute_trajectory(method = method)
                 self.current_time += 1
         return self.weights
+
+
+class AttractorPF(ParticleFilter):
+    """
+    Description:
+        A class for defining bootstrap filter with attractor resampling for deterministic problems
+
+    Parent class:
+        ParticleFilter
+
+    Attrs(extra):
+        attractor_sampler: an AttractorSampler object
+
+    Methods(extra):
+        attractor_resample: performs attractor resampling
+
+    Methods(modified):
+        resample: default method set to 'attractor'
+    """
+    def __init__(self, model, particle_count, attractor_sampler, save_trajectories = False):
+        self.sampler = attractor_sampler
+        super().__init__(model=model, particle_count=particle_count, save_trajectories=save_trajectories)
+
+    def attractor_resample(self):
+        """
+        Description:
+            Performs attractor resampling
+        """
+        self.particles = self.sampler.resample(self.particles)
+        self.weights = np.ones(self.particle_count)/self.particle_count
+
+    def resample(self, threshold_factor = 0.1, method = 'attractor'):
+        super().resample(threshold_factor=threshold_factor, method=method)
 
 
 

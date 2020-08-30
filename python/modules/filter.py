@@ -170,7 +170,7 @@ class ParticleFilter(Filter):
         return len(np.unique(indices))
 
 
-    def resample(self, threshold_factor = 0.1, method = 'systematic'):
+    def resample(self, threshold_factor = 0.1, method = 'systematic', **params):
         """
         Description:
             Performs resampling
@@ -182,7 +182,7 @@ class ParticleFilter(Filter):
         # resample if effective particle count criterion is met
         if 1.0/(self.weights**2).sum() < threshold_factor*self.particle_count:
             indices = np.random.choice(self.particle_count, self.particle_count, p = self.weights)
-            getattr(self, method + '_resample')()
+            getattr(self, method + '_resample')(**params)
             self.resampling_tracker.append(True)
             return True # resampling occurred
         self.resampling_tracker.append(False)
@@ -218,7 +218,7 @@ class ParticleFilter(Filter):
         return self.computed_trajectory
 
     @ut.timer
-    def update(self, observations, threshold_factor = 0.1, method = 'mean'):
+    def update(self, observations, threshold_factor = 0.1, method = 'mean', resampling_method = 'systematic', **params):
         """
         Description:
             Updates using all the obeservations using self.compute_weights and self.resample
@@ -232,7 +232,7 @@ class ParticleFilter(Filter):
         self.observed_path = observations
         for observation in self.observed_path:
             self.compute_weights(observation = observation)
-            self.resample(threshold_factor = threshold_factor)
+            self.resample(threshold_factor = threshold_factor, method = resampling_method, **params)
             if method is not None:
                 self.compute_trajectory(method = method)
                 self.current_time += 1
@@ -276,16 +276,47 @@ class AttractorPF(ParticleFilter):
         self.sampler = attractor_sampler
         super().__init__(model=model, particle_count=particle_count, save_trajectories=save_trajectories)
 
-    def attractor_resample(self):
+    def attractor_resample(self, **params):
         """
         Description:
             Performs attractor resampling
         """
-        self.particles = self.sampler.resample(self.particles)
+        for i, weight in enumerate(self.weights):
+            if weight < 1.0/self.particle_count:
+                self.particles[i] = self.sampler.resample([self.particles[i]])[0]
         self.weights = np.ones(self.particle_count)/self.particle_count
 
-    def resample(self, threshold_factor = 0.1, method = 'attractor'):
-        super().resample(threshold_factor=threshold_factor, method=method)
+    def attractor2_resample(self, **params):
+        """
+        Description:
+            Performs attractor resampling
+        """
+        for i, weight in enumerate(self.weights):
+            if weight < 1.0/self.particle_count:
+                self.particles[i] = self.sampler.resample2([self.particles[i]])[0]
+        self.weights = np.ones(self.particle_count)/self.particle_count
+
+    def attractor3_resample(self, **params):
+        """
+        Description:
+            Performs attractor resampling
+        """
+        fn = lambda x: params['func'](0, params['observation'], x)
+        for i, weight in enumerate(self.weights):
+            if weight < 1.0/self.particle_count:
+                self.particles[i] = self.sampler.resample3([self.particles[i]], fn)[0]
+        self.weights = np.ones(self.particle_count)/self.particle_count
+
+    def update(self, observations, threshold_factor = 0.1, method = 'mean', resampling_method = 'attractor', **params):
+        self.current_time = 0
+        self.observed_path = observations
+        for observation in self.observed_path:
+            self.compute_weights(observation = observation)
+            self.resample(threshold_factor = threshold_factor, method = resampling_method, **{**params, **{'observation': observation}})
+            if method is not None:
+                self.compute_trajectory(method = method)
+                self.current_time += 1
+        return self.weights
 
 
 

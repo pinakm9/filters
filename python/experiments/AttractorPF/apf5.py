@@ -26,10 +26,10 @@ observed_path = model.observation.generate_path(hidden_path)
 """
 Solution using an attractor particle filter
 """
-db_path = str(script_path.parent.parent.parent) + '/data/henon_attractor.h5' #_14_3_large
+db_path = str(script_path.parent.parent.parent) + '/data/henon_attractor_14_3_large.h5' #
 attractor_sampler = atr.AttractorSampler(db_path = db_path)
 apf = fl.AttractorPF(model, particle_count = 50, attractor_sampler = attractor_sampler)
-apf.update(observed_path, threshold_factor = 0.1, method = 'mean')
+apf.update(observed_path, threshold_factor = 0.1, method = 'mean', resampling_method = 'attractor', func = model5.conditional_pdf_o)
 
 # plot trajectories
 model = 'model5'

@@ -367,6 +367,7 @@ class AttractorSampler:
                 diff = np.array(pt) - seed
                 dist[i] = np.dot(diff, diff)
             cl_seeds[j] = self.seed_idx[np.argmin(dist)]
+            #print('min dist = {}'.format(min(dist)))
         return cl_seeds
 
     #@ut.timer
@@ -388,6 +389,55 @@ class AttractorSampler:
             ensemble[i*num_pts: (i+1)*num_pts] = self.points[np.random.choice(allot, size=num_pts)]
         return ensemble
 
+
+    def sample_from_cells2(self, pts, cell_idx, num_pts=1):
+        """
+        Description:
+            Samples points from a list of Voronoi cells w.r.t minimum distance
+        Args:
+            pts: points to be replaced
+            cells: list of indices to Voronoi cells from which points are to be sampled
+            num_pts: number of points to be sampled from each cell, default = 1
+
+        Returns:
+            list of randomly sampled points
+        """
+        ensemble = np.zeros((len(cell_idx) * num_pts, self.dim), dtype='float64')
+        for i, cell_id in enumerate(cell_idx):
+            allot = getattr(self.db.allotments, 'cell_' + str(cell_id)).read().tolist()
+            cell_pts = self.points[np.array(allot, dtype='int32').flatten()]
+            dist = np.ones(len(cell_pts), dtype='float64')
+            for j, cell_pt in enumerate(cell_pts):
+                diff = cell_pt - pts[i]
+                dist[j] = np.dot(diff, diff)
+            ensemble[i] = cell_pts[np.argmin(dist)]
+            print('min dist: {}, pt: {}, cell_pt: {}'.format(min(dist), pts[i], ensemble[i]))
+        return ensemble
+
+
+    def sample_from_cells3(self, pts, cell_idx, func, num_pts=1):
+        """
+        Description:
+            Samples points from a list of Voronoi cells w.r.t minimum distance
+        Args:
+            pts: points to be replaced
+            cells: list of indices to Voronoi cells from which points are to be sampled
+            num_pts: number of points to be sampled from each cell, default = 1
+
+        Returns:
+            list of randomly sampled points
+        """
+        ensemble = np.zeros((len(cell_idx) * num_pts, self.dim), dtype='float64')
+        for i, cell_id in enumerate(cell_idx):
+            allot = getattr(self.db.allotments, 'cell_' + str(cell_id)).read().tolist()
+            cell_pts = self.points[np.array(allot, dtype='int32').flatten()]
+            weights = np.array([func(cell_pt) for cell_pt in cell_pts])
+            ensemble[i] = cell_pts[np.argmax(weights)]
+            print('max weight: {}, pt: {}, cell_pt: {}'.format(max(weights), pts[i], ensemble[i]))
+        return ensemble
+
+
+
     @ut.timer
     def resample(self, pts):
         """
@@ -402,3 +452,34 @@ class AttractorSampler:
         """
         cell_idx = self.closest_seeds(pts)
         return self.sample_from_cells(cell_idx)
+
+
+    @ut.timer
+    def resample2(self, pts):
+        """
+        Description:
+            Replaces a list of points with points sampled from their closest Voronoi cells
+
+        Args:
+            pts: the list of points to be replaced
+
+        Returns:
+            list of replacement/resampled points
+        """
+        cell_idx = self.closest_seeds(pts)
+        return self.sample_from_cells2(pts, cell_idx)
+
+    @ut.timer
+    def resample3(self, pts, func):
+        """
+        Description:
+            Replaces a list of points with points sampled from their closest Voronoi cells
+
+        Args:
+            pts: the list of points to be replaced
+
+        Returns:
+            list of replacement/resampled points
+        """
+        cell_idx = self.closest_seeds(pts)
+        return self.sample_from_cells3(pts, cell_idx, func)

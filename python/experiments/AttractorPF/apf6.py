@@ -14,25 +14,25 @@ import scipy
 import utility as ut
 import matplotlib.pyplot as plt
 import plot
-import model5
+import model6
 import attract as atr
 """
 Generate paths
 """
 s = int(sys.argv[1])
-model, a, b = model5.model(size = s)
-hidden_path = model5.gen_path(length = s)
+model, a, b = model6.model(size = s)
+hidden_path = model.hidden_state.generate_path()
 observed_path = model.observation.generate_path(hidden_path)
 """
 Solution using an attractor particle filter
 """
-db_path = str(script_path.parent.parent.parent) + '/data/henon_attractor.h5' #_14_3_large
+db_path = str(script_path.parent.parent.parent) + '/data/henon_attractor_14_3_large.h5'
 attractor_sampler = atr.AttractorSampler(db_path = db_path)
-apf = fl.AttractorPF(model, particle_count = 50, attractor_sampler = attractor_sampler)
+apf = fl.AttractorPF(model, particle_count = 500, attractor_sampler = attractor_sampler)
 apf.update(observed_path, threshold_factor = 0.1, method = 'mean')
 
 # plot trajectories
-model = 'model5'
+model = 'model6'
 image_dir = str(script_path.parent.parent.parent) + '/images/AttractorPF/'
 apf.plot_trajectories(hidden_path, coords_to_plot = [0, 1], show = True, file_path = image_dir + '{}_trajectories.png'.format(model))
 apf.compute_error(hidden_path)

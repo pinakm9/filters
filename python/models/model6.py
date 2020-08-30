@@ -16,21 +16,13 @@ import plot as plot
 """
 A 2D non-linear problem (Henon map)
 """
-# Create a deterministic Markov chain
-a, b, eps  = 1.4, 0.3, 0.0
+# Create a Markov chain
+a, b, eps  = 0.5, 0.1, 0.0
 mu, id, zero =  np.zeros(2), np.identity(2), np.zeros(2)
-x0 = (0.5086958043266177, 0.126731276358114)
-prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(x0, 0.0000000001*id))
+prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal((0.5086958043266177, 0.126731276358114), 0.001*id))
 process_noise = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mu, eps*id))
 func_h = lambda k, x, noise: np.array([1.0 - a*x[0]**2 + x[1], b*x[0]]) + noise
 conditional_pdf_h = lambda k, x, past: scipy.stats.multivariate_normal.pdf(x, mean = func_h(k, past, zero), cov = eps*id)
-def gen_path(length):
-    path = np.zeros((length, 2), dtype = 'float64')
-    x = x0
-    for i in range(length):
-        path[i] = x
-        x = func_h(i, x, zero)
-    return path
 
 # Define the observation model
 delta = 0.01

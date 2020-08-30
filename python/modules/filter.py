@@ -61,6 +61,7 @@ class Filter():
         self.rmse = np.linalg.norm(self.error)/np.sqrt(len(hidden_path))
         self.error_mean = np.mean(self.error, axis = 0)
         self.error_cov = np.std(self.error, axis = 0)
+        self.abs_error = np.array([np.linalg.norm(error) for error in self.error])
 
     def plot_trajectories(self, hidden_path, coords_to_plot, show = False, file_path = None, title = None):
         plot.SignalPlotter(signals = [hidden_path, self.observed_path, self.computed_trajectory])\
@@ -68,9 +69,9 @@ class Filter():
             plt_fns = ['plot', 'scatter', 'scatter'], colors = ['black', 'blue', 'red'], coords_to_plot = coords_to_plot,\
             show = show, file_path = file_path, title = title)
 
-    def plot_error(self, show = False, file_path = None, title = None):
-        plot.SignalPlotter(signals = [abs(self.error)]).plot_signals(labels = ['absolute error'], styles = [{'linestyle':'solid'}],\
-            plt_fns = ['plot'], colors = ['black'], coords_to_plot = [0], show = show, file_path = file_path, title = title)
+    def plot_error(self, show = False, file_path = None, title = None, semilogy = False):
+        plot.SignalPlotter(signals = [abs(self.abs_error)]).plot_signals(labels = ['absolute error'], styles = [{'linestyle':'solid'}],\
+            plt_fns = ['semilogy' if semilogy else 'plot'], colors = ['black'], coords_to_plot = [0], show = show, file_path = file_path, title = title)
 
 
 
@@ -108,6 +109,7 @@ class ParticleFilter(Filter):
         self.computed_trajectory = np.empty((0, self.dimension))
         if save_trajectories:
             self.trajectories = [self.particles]
+        self.resampling_tracker = []
 
     def compute_weights(self, observation):
         """
@@ -181,7 +183,9 @@ class ParticleFilter(Filter):
         if 1.0/(self.weights**2).sum() < threshold_factor*self.particle_count:
             indices = np.random.choice(self.particle_count, self.particle_count, p = self.weights)
             getattr(self, method + '_resample')()
+            self.resampling_tracker.append(True)
             return True # resampling occurred
+        self.resampling_tracker.append(False)
         return False # resampling didn't occur
 
     def filtering_pdf(self, x):
@@ -233,6 +237,22 @@ class ParticleFilter(Filter):
                 self.compute_trajectory(method = method)
                 self.current_time += 1
         return self.weights
+
+    def plot_error(self, show = False, file_path = None, title = None, semilogy = False, resampling = True):
+        signals = [self.abs_error]
+        labels = ['absolute error']
+        styles = [{'linestyle':'solid'}]
+        plt_fns = ['semilogy' if semilogy else 'plot']
+        colors = ['black']
+        if resampling:
+            resampling_lines = [self.abs_error[i] if self.resampling_tracker[i] else np.nan for i in range(len(self.error))]
+            signals.append(resampling_lines)
+            labels.append('resampling tracker')
+            styles.append({'marker':'o'})
+            plt_fns.append('scatter')
+            colors.append('red')
+        plot.SignalPlotter(signals = signals).plot_signals(labels = labels, styles = styles, plt_fns = plt_fns, colors = colors,\
+                           show = show, file_path = file_path, title = title)
 
 
 class AttractorPF(ParticleFilter):

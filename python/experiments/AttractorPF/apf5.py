@@ -36,7 +36,7 @@ model = 'model5'
 image_dir = str(script_path.parent.parent.parent) + '/images/AttractorPF/'
 apf.plot_trajectories(hidden_path, coords_to_plot = [0, 1], show = True, file_path = image_dir + '{}_trajectories.png'.format(model))
 apf.compute_error(hidden_path)
-apf.plot_error(show = True, file_path = image_dir + '{}_abs_err_vs_time.png'.format(model))
+apf.plot_error(show = True, file_path = image_dir + '{}_abs_err_vs_time.png'.format(model), semilogy = True)
 plt.figure(figsize = (8,8))
 ax = plt.subplot(111)
 ax.scatter(hidden_path[:, 0], hidden_path[:, 1], color = 'orange', s = 0.2)

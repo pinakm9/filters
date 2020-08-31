@@ -483,3 +483,21 @@ class AttractorSampler:
         """
         cell_idx = self.closest_seeds(pts)
         return self.sample_from_cells3(pts, cell_idx, func)
+
+
+    @ut.timer
+    def resample4(self, pts, func):
+        """
+        Description:
+            Replaces a list of points with points sampled from their closest Voronoi cells
+
+        Args:
+            pts: the list of points to be replaced
+
+        Returns:
+            list of replacement/resampled points
+        """
+        weights = np.array([func(p) for p in self.points])
+        idx = np.argsort(weights)[-1: -len(pts)-1: -1]
+        print('weights: {}'.format(weights[idx]))
+        return self.points[idx]

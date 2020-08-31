@@ -307,6 +307,16 @@ class AttractorPF(ParticleFilter):
                 self.particles[i] = self.sampler.resample3([self.particles[i]], fn)[0]
         self.weights = np.ones(self.particle_count)/self.particle_count
 
+    def attractor4_resample(self, **params):
+        """
+        Description:
+            Performs attractor resampling
+        """
+        fn = lambda x: params['func'](0, params['observation'], x)
+        self.particles = self.sampler.resample4(self.particles, fn)
+        print(self.particles)
+        self.weights = np.ones(self.particle_count)/self.particle_count
+
     def update(self, observations, threshold_factor = 0.1, method = 'mean', resampling_method = 'attractor', **params):
         self.current_time = 0
         self.observed_path = observations

@@ -26,21 +26,17 @@ observed_path = model.observation.generate_path(hidden_path)
 """
 Solution using an attractor particle filter
 """
-db_id = '14_3_large'
-resample_id = '6'
-particle_count = 10000
+particle_count = 16000
 resampling_threshold = 0.1
-db_path = str(script_path.parent.parent.parent) + '/data/henon_attractor_{}.h5'.format(db_id)
-attractor_sampler = atr.AttractorSampler(db_path = db_path)
-apf = fl.AttractorPF(model, particle_count = particle_count, attractor_sampler = attractor_sampler)
-apf.update(observed_path, threshold_factor = resampling_threshold, method = 'mean', resampling_method = 'attractor{}'.format(resample_id), func = model5.conditional_pdf_o)
+bpf = fl.ParticleFilter(model, particle_count = particle_count)
+bpf.update(observed_path, threshold_factor = resampling_threshold, method = 'mean')
 
 # plot trajectories
-model_id = 'model5_' + resample_id + '_' + str(particle_count) + '_' + str(resampling_threshold) + '_' + str(db_id)
-image_dir = str(script_path.parent.parent.parent) + '/images/AttractorPF/'
-apf.plot_trajectories(hidden_path, coords_to_plot = [0, 1], show = True, file_path = image_dir + '{}_trajectories.png'.format(model_id))
-apf.compute_error(hidden_path)
-apf.plot_error(show = True, file_path = image_dir + '{}_abs_err_vs_time.png'.format(model_id), semilogy = True)
+model_id = 'model5_' + str(particle_count) + '_' + str(resampling_threshold)
+image_dir = str(script_path.parent.parent.parent) + '/images/ParticleFilter/'
+bpf.plot_trajectories(hidden_path, coords_to_plot = [0, 1], show = True, file_path = image_dir + '{}_trajectories.png'.format(model_id))
+bpf.compute_error(hidden_path)
+bpf.plot_error(show = True, file_path = image_dir + '{}_abs_err_vs_time.png'.format(model_id), semilogy = True)
 plt.figure(figsize = (8,8))
 ax = plt.subplot(111)
 ax.scatter(hidden_path[:, 0], hidden_path[:, 1], color = 'orange', s = 0.2)

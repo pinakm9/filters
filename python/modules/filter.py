@@ -127,6 +127,7 @@ class ParticleFilter(Filter):
             self.particles = self.model.hidden_state.sims[0].generate(self.particle_count)
 
         # compute new weights
+        self.prev_weights = self.weights
         for i in range(self.particle_count):
             #prob1 = self.model.hidden_state.conditional_pdf(self.current_time, new_particles[i], self.particles[i])
             prob2 = self.model.observation.conditional_pdf(self.current_time, observation, self.particles[i])
@@ -313,10 +314,46 @@ class AttractorPF(ParticleFilter):
             Performs attractor resampling
         """
         fn = lambda x: params['func'](0, params['observation'], x)
-        self.particles = self.sampler.resample4(self.particles, fn)
-        print(self.particles)
-        self.weights = np.ones(self.particle_count)/self.particle_count
+        self.particles, weights = self.sampler.resample4(self.particle_count, fn)
+        self.weights = np.array([w*self.prev_weights[i] for i, w in enumerate(weights)])
+        self.weights /= self.weights.sum()
+        self.prev_weights = self.weights
 
+    def attractor5_resample(self, **params):
+        """
+        Description:
+            Performs attractor resampling
+        """
+        fn = lambda x: params['func'](0, params['observation'], x)
+        idx = []
+        for i, w in enumerate(self.weights):
+            if w < 1.0/self.particle_count:
+                idx.append(i)
+        particles, weights = self.sampler.resample4(len(idx), fn)
+        for j, i in enumerate(idx):
+            self.particles[i] = particles[j]
+            self.weights[i] = weights[j]*self.prev_weights[i]
+        self.weights /= self.weights.sum()
+        self.prev_weights = self.weights
+
+    def attractor6_resample(self, **params):
+        """
+        Description:
+            Performs attractor resampling
+        """
+        fn = lambda x: params['func'](0, params['observation'], x)
+        idx = []
+        for i, w in enumerate(self.weights):
+            if w < 1e-3:
+                idx.append(i)
+        particles, weights = self.sampler.resample4(len(idx), fn)
+        for j, i in enumerate(idx):
+            self.particles[i] = particles[j]
+            self.weights[i] = weights[j]*self.prev_weights[i]
+        self.weights /= self.weights.sum()
+        self.prev_weights = self.weights
+
+    @ut.timer
     def update(self, observations, threshold_factor = 0.1, method = 'mean', resampling_method = 'attractor', **params):
         self.current_time = 0
         self.observed_path = observations

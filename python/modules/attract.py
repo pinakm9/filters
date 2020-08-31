@@ -486,7 +486,7 @@ class AttractorSampler:
 
 
     @ut.timer
-    def resample4(self, pts, func):
+    def resample4(self, num_pts, func):
         """
         Description:
             Replaces a list of points with points sampled from their closest Voronoi cells
@@ -498,6 +498,6 @@ class AttractorSampler:
             list of replacement/resampled points
         """
         weights = np.array([func(p) for p in self.points])
-        idx = np.argsort(weights)[-1: -len(pts)-1: -1]
-        print('weights: {}'.format(weights[idx]))
-        return self.points[idx]
+        idx = np.argsort(weights)[-1: -num_pts-1: -1]
+        #print('weights: {}'.format(weights[idx]))
+        return self.points[idx], weights[idx]

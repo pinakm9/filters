@@ -28,7 +28,7 @@ Solution using an attractor particle filter
 """
 db_id = '14_3_large'
 resample_id = '6'
-particle_count = 10000
+particle_count = 100
 resampling_threshold = 0.1
 db_path = str(script_path.parent.parent.parent) + '/data/henon_attractor_{}.h5'.format(db_id)
 attractor_sampler = atr.AttractorSampler(db_path = db_path)

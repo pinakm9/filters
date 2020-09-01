@@ -349,8 +349,7 @@ class AttractorPF(ParticleFilter):
         particles, weights = self.sampler.resample4(len(idx), fn)
         for j, i in enumerate(idx):
             self.particles[i] = particles[j]
-            self.weights[i] = weights[j]*self.prev_weights[i]
-        self.weights /= self.weights.sum()
+        self.weights = (1.0/self.particle_count)*np.ones(self.particle_count)
         self.prev_weights = self.weights
 
     @ut.timer

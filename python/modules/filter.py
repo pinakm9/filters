@@ -50,7 +50,7 @@ class Filter():
         """
         self.model = model
         self.current_time = 0
-
+        self.computed_trajectory = np.empty((0, self.model.hidden_state.dimension))
 
     def compute_error(self, hidden_path):
         """
@@ -63,15 +63,25 @@ class Filter():
         self.error_cov = np.std(self.error, axis = 0)
         self.abs_error = np.array([np.linalg.norm(error) for error in self.error])
 
-    def plot_trajectories(self, hidden_path, coords_to_plot, show = False, file_path = None, title = None):
-        plot.SignalPlotter(signals = [hidden_path, self.observed_path, self.computed_trajectory])\
-            .plot_signals(labels = ['hidden', 'observed', 'computed'], styles = [{'linestyle':'solid'}, {'marker':'x'}, {'marker':'o'}],\
-            plt_fns = ['plot', 'scatter', 'scatter'], colors = ['black', 'blue', 'red'], coords_to_plot = coords_to_plot,\
-            show = show, file_path = file_path, title = title)
+    def plot_trajectories(self, hidden_path, coords_to_plot, show = False, file_path = None, title = None, measurements = False):
+        signals = [hidden_path, self.computed_trajectory]
+        labels = ['hidden', 'computed']
+        styles = [{'linestyle':'solid'}, {'marker':'o'}]
+        plt_fns = ['plot', 'scatter']
+        colors = ['black', 'red']
+        if measurements:
+            signals.append(self.observed_path)
+            labels.append('measurements')
+            styles.append({'marker': 'x'})
+            plt_fns.append('scatter')
+            colors.append('blue')
+        plot.SignalPlotter(signals).plot_signals(labels = labels, styles = styles, plt_fns = plt_fns, colors = colors,\
+                                                coords_to_plot = coords_to_plot, show = show, file_path = file_path, title = title)
 
     def plot_error(self, show = False, file_path = None, title = None, semilogy = False):
         plot.SignalPlotter(signals = [abs(self.abs_error)]).plot_signals(labels = ['absolute error'], styles = [{'linestyle':'solid'}],\
             plt_fns = ['semilogy' if semilogy else 'plot'], colors = ['black'], coords_to_plot = [0], show = show, file_path = file_path, title = title)
+
 
 
 
@@ -106,10 +116,10 @@ class ParticleFilter(Filter):
             self.dimension = 1
         else:
             self.dimension = len(sample)
-        self.computed_trajectory = np.empty((0, self.dimension))
         if save_trajectories:
             self.trajectories = [self.particles]
         self.resampling_tracker = []
+
 
     def compute_weights(self, observation):
         """
@@ -122,7 +132,7 @@ class ParticleFilter(Filter):
         """
         # predict the new particles
         if self.current_time > 0:
-            self.particles = [self.model.hidden_state.sims[self.current_time].algorithm(self.current_time, particle) for particle in self.particles]
+            self.particles = np.array([self.model.hidden_state.sims[self.current_time].algorithm(self.current_time, particle) for particle in self.particles])
         else:
             self.particles = self.model.hidden_state.sims[0].generate(self.particle_count)
 
@@ -229,7 +239,6 @@ class ParticleFilter(Filter):
         Returns:
             self.weights
         """
-        self.current_time = 0
         self.observed_path = observations
         for observation in self.observed_path:
             self.compute_weights(observation = observation)
@@ -354,7 +363,6 @@ class AttractorPF(ParticleFilter):
 
     @ut.timer
     def update(self, observations, threshold_factor = 0.1, method = 'mean', resampling_method = 'attractor', **params):
-        self.current_time = 0
         self.observed_path = observations
         for observation in self.observed_path:
             self.compute_weights(observation = observation)
@@ -531,7 +539,6 @@ class GlobalSamplingUPF(ParticleFilter):
         Returns:
             self.weights
         """
-        self.current_time = 0
         self.observed_path = observations
         for observation in self.observed_path:
             self.compute_weights(observation = observation)
@@ -656,14 +663,12 @@ class KalmanFilter(Filter):
         Args:
             observations: list/np.array of observations to pass to self.compute_weights
         """
-        self.current_time = 0
-        self.computed_trajectory = []
         self.observed_path = observations
         for observation in self.observed_path:
             self.one_step_update(observation = observation)
-            self.computed_trajectory.append(self.mean)
+            self.computed_trajectory = np.append(self.computed_trajectory, [self.mean], axis = 0)
             self.current_time += 1
-        self.computed_trajectory = np.array(self.computed_trajectory)
+
 
 class EnsembleKF(KalmanFilter):
     """

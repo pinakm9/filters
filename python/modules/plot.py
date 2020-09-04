@@ -126,3 +126,57 @@ class SignalPlotter(object):
         #else:
             #print("file_path was not specified. So the image file was not saved.")
         return fig, ax
+
+
+def plot_ensemble_trajectory(ensemble_trajectory, ax = None, fig_size = (10, 10), color = 'blue', mean = False, show = True, saveas = None):
+    """
+    Description: Plots a trajectory of ensembles
+
+    Args:
+        ensemble_trajectory: list of ensembles
+        ax: axes object for creating the plot
+        fig_size: size of the image
+        color: color of scatter plot
+        show: boolean flag for displaying the generated image
+        saveas: file path for the image, default = None in which case the plot won't be saved
+    """
+    if ax is None:
+        fig = plt.figure(figsize = fig_size)
+        ax = fig.add_subplot(111)
+    for ensemble in ensemble_trajectory:
+        ax.scatter(ensemble[0, :], ensemble[1, :], color = ut.random_color(as_str = False))
+    if mean:
+        x = [np.average(e[0, :]) for e in ensemble_trajectory]
+        y = [np.average(e[1, :]) for e in ensemble_trajectory]
+        ax.scatter(x, y)
+    if show:
+        plt.show()
+    if saveas is not None:
+        plt.savefig(fname = saveas)
+    return ax
+
+
+def plot_ensemble_trajectories(ensemble_trajectories, fig_size = (10, 10), colors = None, show = True, saveas = None):
+    """
+    Description: Plots a trajectory of ensembles
+
+    Args:
+        ensemble_trajectory: list of ensembles
+        fig_size: size of the image
+        colors: colors of scatter plots
+        show: boolean flag for displaying the generated image
+        saveas: file path for the image, default = None in which case the plot won't be saved
+    """
+    i = 0
+    ax = None
+    if colors is None:
+        colors = [ut.random_color(as_str = False, alpha = 1.0) for et in ensemble_trajectories]
+        print(colors)
+    while i < len(ensemble_trajectories):
+        ax = plot_ensemble_trajectory(ensemble_trajectories[i], ax = ax, fig_size = fig_size, color = colors[i], show = False, saveas = None)
+        i += 1
+    if show:
+        plt.show()
+    if saveas is not None:
+        plt.savefig(fname = saveas)
+    return ax

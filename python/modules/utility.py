@@ -1,6 +1,7 @@
 # A helper module for various sub-tasks
 from time import time
 import numpy as np
+import random
 
 def timer(func):
 	"""

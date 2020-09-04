@@ -25,14 +25,14 @@ observed_path = model.observation.generate_path(hidden_path)
 """
 Solution using an implcit particle filter
 """
-enkf = fl.EnsembleKF(model, ensemble_size = 200)
-enkf.update(observed_path)
+enkf5 = fl.EnsembleKF(model, ensemble_size = 200)
+enkf5.update(observed_path)
 # plot trajectories
 image_dir = str(script_path.parent.parent.parent) + '/images/EnsembleKF/'
-enkf.plot_trajectories(hidden_path, coords_to_plot = [0, 1], show = True, \
+enkf5.plot_trajectories(hidden_path, coords_to_plot = [0, 1], show = True, \
             file_path = image_dir + 'linear_trajectories.png')
-enkf.compute_error(hidden_path)
-enkf.plot_error(show = True, file_path = image_dir + 'linear_abs_err_vs_time.png')
-enkf_final_mean = enkf.computed_trajectory[-1]
+enkf5.compute_error(hidden_path)
+enkf5.plot_error(show = True, file_path = image_dir + 'linear_abs_err_vs_time.png')
+enkf5_final_mean = enkf.computed_trajectory[-1]
 exact_final_mean = model1.update(observed_path[1:])[0][-1]
 print("Error in (final) mean = {}".format(np.linalg.norm(enkf_final_mean - exact_final_mean)))

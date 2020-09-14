@@ -452,7 +452,7 @@ class AttractorSampler:
         cell_idx = self.closest_seeds(pts)
         max_off_id = np.argmax(offsprings)
         offsprings[max_off_id] += (len(pts) - sum(offsprings))
-        print('total_offsprings = {}'.format(sum(offsprings)))
+        print('total_offsprings = {}, max = {}'.format(sum(offsprings), offsprings[max_off_id]))
         start = 0
         end = 0
         for i, cell_id in enumerate(cell_idx):

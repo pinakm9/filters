@@ -36,7 +36,7 @@ apf = fl.AttractorPF(model, particle_count = particle_count, attractor_sampler =
 apf.update(observed_path, threshold_factor = resampling_threshold, method = 'mean', resampling_method = 'attractor{}'.format(resample_id), func = model5.conditional_pdf_o)
 
 # plot trajectories
-model_id = 'model5_' + resample_id + '_' + str(particle_count) + '_' + str(resampling_threshold) + '_' + str(db_id)
+model_id = 'model5_' + resample_id + '_' + str(particle_count) + '_' + str(resampling_threshold) + '_' + str(db_id) + '_' + str(s)
 image_dir = str(script_path.parent.parent.parent) + '/images/AttractorPF/'
 apf.plot_trajectories(hidden_path, coords_to_plot = [0, 1], show = True, file_path = image_dir + '{}_trajectories.png'.format(model_id))
 apf.compute_error(hidden_path)

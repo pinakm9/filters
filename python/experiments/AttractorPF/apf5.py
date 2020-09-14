@@ -26,9 +26,9 @@ observed_path = model.observation.generate_path(hidden_path)
 """
 Solution using an attractor particle filter
 """
-db_id = '14_3_large'
-resample_id = '6'
-particle_count = 100
+db_id = '14_3_small'
+resample_id = '0'
+particle_count = 1000
 resampling_threshold = 0.1
 db_path = str(script_path.parent.parent.parent) + '/data/henon_attractor_{}.h5'.format(db_id)
 attractor_sampler = atr.AttractorSampler(db_path = db_path)
@@ -44,4 +44,4 @@ apf.plot_error(show = True, file_path = image_dir + '{}_abs_err_vs_time.png'.for
 plt.figure(figsize = (8,8))
 ax = plt.subplot(111)
 ax.scatter(hidden_path[:, 0], hidden_path[:, 1], color = 'orange', s = 0.2)
-#plt.savefig(image_dir + '{}_true_trajectory.png'.format(model_id))
+plt.savefig(image_dir + '{}_true_trajectory.png'.format(model_id))

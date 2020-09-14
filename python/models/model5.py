@@ -35,7 +35,7 @@ def gen_path(length):
 # Define the observation model
 delta = 0.01
 H = np.array([[1.0, 1.0],[0.0, 2.0]])
-func_o = lambda k, x, noise: np.dot(H, x) + 0.5*np.sin(x) + noise
+func_o = lambda k, x, noise: np.dot(H, x) + 0.*0.5*np.sin(x) + noise
 observation_noise = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mu, delta*id))
 conditional_pdf_o = lambda k, y, condition: scipy.stats.multivariate_normal.pdf(y, mean = func_o(0, condition, mu), cov = delta*id)
 

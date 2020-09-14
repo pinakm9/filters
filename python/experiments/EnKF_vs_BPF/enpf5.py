@@ -14,6 +14,7 @@ import scipy
 import utility as ut
 import matplotlib.pyplot as plt
 import plot
+import attract as atr
 import model5
 """
 Generate paths
@@ -30,6 +31,7 @@ ensemble_trajectory = np.zeros((s, 2, ensemble_size))
 enkf = fl.EnsembleKF(model, ensemble_size = ensemble_size)
 for i, observation in enumerate(observed_path):
     enkf.update([observation])
+    print(enkf.current_time)
     ensemble_trajectory[i] = enkf.ensemble
 """
 Solution using a particle filter
@@ -39,8 +41,25 @@ resampling_threshold = 0.1
 particles_trajectory = np.zeros((s, 2, particle_count))
 bpf = fl.ParticleFilter(model, particle_count = particle_count)
 for i, observation in enumerate(observed_path):
+    print(bpf.current_time)
     bpf.update([observation], threshold_factor = resampling_threshold, method = 'mean')
     particles_trajectory[i] = bpf.particles.T
+"""
+Solution using an attarctor particle filter
+"""
+db_id = '14_3_small'
+resample_id = '0'
+particle_count = 100
+resampling_threshold = 0.1
+db_path = str(script_path.parent.parent.parent) + '/data/henon_attractor_{}.h5'.format(db_id)
+apf_trajectory = np.zeros((s, 2, particle_count))
+attractor_sampler = atr.AttractorSampler(db_path = db_path)
+apf = fl.AttractorPF(model, particle_count = particle_count, attractor_sampler = attractor_sampler)
+for i, observation in enumerate(observed_path):
+    print(apf.current_time, observation)
+    apf.update([observation], threshold_factor = resampling_threshold, method = 'mean', resampling_method = 'attractor{}'.format(resample_id), func = model5.conditional_pdf_o)
+    apf_trajectory[i] = apf.particles.T
+#"""
 """
 plot trajectories
 """
@@ -50,10 +69,27 @@ plot.SignalPlotter(signals = [enkf.computed_trajectory, bpf.computed_trajectory]
 """
 plot ensembles
 """
+ax = plot.plot_ensemble_trajectories([apf_trajectory], colors = ['red', 'blue'], show = False)
+ax.scatter(hidden_path[:, 0], hidden_path[:, 1], color = 'black')
+plt.savefig(image_dir + 'apf_particles.png')
 ax = plot.plot_ensemble_trajectories([particles_trajectory], colors = ['red', 'blue'], show = False)
 ax.scatter(hidden_path[:, 0], hidden_path[:, 1], color = 'black')
 plt.savefig(image_dir + 'particles.png')
 ax = plot.plot_ensemble_trajectories([ensemble_trajectory], colors = ['red', 'blue'], show = False)
 ax.scatter(hidden_path[:, 0], hidden_path[:, 1], color = 'black')
 plt.savefig(image_dir + 'ensemble.png')
-#plt.show()
+"""
+save data
+"""
+data_dir = str(script_path.parent.parent.parent) + '/data/'
+with open(data_dir + 'Henon_apf.npy', 'wb') as np_file:
+    np.save(np_file, apf_trajectory)
+with open(data_dir + 'Henon_bpf.npy', 'wb') as np_file:
+    np.save(np_file, particles_trajectory)
+with open(data_dir + 'Henon_enkf.npy', 'wb') as np_file:
+    np.save(np_file, ensemble_trajectory)
+with open(data_dir + 'Henon_true.npy', 'wb') as np_file:
+    np.save(np_file, hidden_path.T)
+print(particles_trajectory[0])
+print(ensemble_trajectory[0])
+print(hidden_path.T)

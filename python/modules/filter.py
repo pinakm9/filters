@@ -243,9 +243,10 @@ class ParticleFilter(Filter):
         for observation in self.observed_path:
             self.compute_weights(observation = observation)
             self.resample(threshold_factor = threshold_factor, method = resampling_method, **params)
+            print('current time  = {}'.format(self.current_time))
             if method is not None:
                 self.compute_trajectory(method = method)
-                self.current_time += 1
+            self.current_time += 1
         return self.weights
 
     def plot_error(self, show = False, file_path = None, title = None, semilogy = False, resampling = True):
@@ -294,6 +295,14 @@ class AttractorPF(ParticleFilter):
         for i, weight in enumerate(self.weights):
             if weight < 1.0/self.particle_count:
                 self.particles[i] = self.sampler.resample([self.particles[i]])[0]
+        self.weights = np.ones(self.particle_count)/self.particle_count
+
+    def attractor0_resample(self, **params):
+        """
+        Description:
+            Performs attractor resampling
+        """
+        self.particles = self.sampler.resample0(self.particles, self.weights)
         self.weights = np.ones(self.particle_count)/self.particle_count
 
     def attractor2_resample(self, **params):
@@ -367,9 +376,10 @@ class AttractorPF(ParticleFilter):
         for observation in self.observed_path:
             self.compute_weights(observation = observation)
             self.resample(threshold_factor = threshold_factor, method = resampling_method, **{**params, **{'observation': observation}})
+            #print('current time  = {}'.format(self.current_time))
             if method is not None:
                 self.compute_trajectory(method = method)
-                self.current_time += 1
+            self.current_time += 1
         return self.weights
 
 

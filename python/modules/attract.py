@@ -437,6 +437,32 @@ class AttractorSampler:
         return ensemble
 
 
+    @ut.timer
+    def resample0(self, pts, weights):
+        """
+        Description:
+            Replaces pts with attractor points. Weights decide number of offsprings
+
+        Args:
+            pts: points to be replaced
+            weights: weights for points ton decide the number of offsprings
+        """
+        ensemble = np.zeros((len(pts), self.dim), dtype='float64')
+        offsprings = [int(round(len(pts) * w)) for w in weights]
+        cell_idx = self.closest_seeds(pts)
+        max_off_id = np.argmax(offsprings)
+        offsprings[max_off_id] += (len(pts) - sum(offsprings))
+        print('total_offsprings = {}'.format(sum(offsprings)))
+        start = 0
+        end = 0
+        for i, cell_id in enumerate(cell_idx):
+            allot = getattr(self.db.allotments, 'cell_' + str(cell_id)).read().tolist()
+            allot = np.array(allot, dtype='int32').flatten()
+            start = end
+            end += offsprings[i]
+            ensemble[start: end] = self.points[np.random.choice(allot, size=offsprings[i])]
+        return ensemble
+
 
     @ut.timer
     def resample(self, pts):

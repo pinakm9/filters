@@ -447,12 +447,27 @@ class AttractorSampler:
             pts: points to be replaced
             weights: weights for points ton decide the number of offsprings
         """
+        # compute number of offsprings and sort by it
         ensemble = np.zeros((len(pts), self.dim), dtype='float64')
-        offsprings = [int(round(len(pts) * w)) for w in weights]
-        cell_idx = self.closest_seeds(pts)
-        max_off_id = np.argmax(offsprings)
-        offsprings[max_off_id] += (len(pts) - sum(offsprings))
-        print('total_offsprings = {}, max = {}'.format(sum(offsprings), offsprings[max_off_id]))
+        offsprings = np.array([int(len(pts) * w) for w in weights], dtype=np.int32)
+        off_idx = offsprings.argsort()
+        offsprings = offsprings[off_idx[::-1]]
+        pts = pts[off_idx[::-1]]
+        discrepancy = len(pts) - sum(offsprings)
+        for i in range(discrepancy):
+            offsprings[i] += 1
+        # find first zero in the offspring count
+        fz = 0
+        for i in range(len(pts)):
+            if offsprings[i] == 0:
+                break
+            else:
+                fz += 1
+        # find the closest seeds for the necessary points
+        cell_idx = self.closest_seeds(pts[:fz])
+        print(offsprings[:fz])
+        print('total_offsprings = {}, max = {}'.format(sum(offsprings), offsprings[0]))
+        # resample keeping the parent point
         start = 0
         end = 0
         for i, cell_id in enumerate(cell_idx):
@@ -460,7 +475,8 @@ class AttractorSampler:
             allot = np.array(allot, dtype='int32').flatten()
             start = end
             end += offsprings[i]
-            ensemble[start: end] = self.points[np.random.choice(allot, size=offsprings[i])]
+            ensemble[start] = pts[i]
+            ensemble[start + 1: end] = self.points[np.random.choice(allot, size=offsprings[i] - 1)]
         return ensemble
 
 

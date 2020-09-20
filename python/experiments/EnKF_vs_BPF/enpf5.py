@@ -26,22 +26,22 @@ observed_path = model.observation.generate_path(hidden_path)
 """
 Solution using an implcit particle filter
 """
-ensemble_size = 100
+ensemble_size = 1000
 ensemble_trajectory = np.zeros((s, 2, ensemble_size))
 enkf = fl.EnsembleKF(model, ensemble_size = ensemble_size)
 for i, observation in enumerate(observed_path):
     enkf.update([observation])
-    print(enkf.current_time)
+    #print(enkf.current_time)
     ensemble_trajectory[i] = enkf.ensemble
 """
 Solution using a particle filter
 """
-particle_count = 100
+particle_count = 1000
 resampling_threshold = 0.1
 particles_trajectory = np.zeros((s, 2, particle_count))
 bpf = fl.ParticleFilter(model, particle_count = particle_count)
 for i, observation in enumerate(observed_path):
-    print(bpf.current_time)
+    #print(bpf.current_time)
     bpf.update([observation], threshold_factor = resampling_threshold, method = 'mean')
     particles_trajectory[i] = bpf.particles.T
 """
@@ -49,14 +49,14 @@ Solution using an attarctor particle filter
 """
 db_id = '14_3_small'
 resample_id = '0'
-particle_count = 100
+particle_count = 1000
 resampling_threshold = 0.1
 db_path = str(script_path.parent.parent.parent) + '/data/henon_attractor_{}.h5'.format(db_id)
 apf_trajectory = np.zeros((s, 2, particle_count))
 attractor_sampler = atr.AttractorSampler(db_path = db_path)
 apf = fl.AttractorPF(model, particle_count = particle_count, attractor_sampler = attractor_sampler)
 for i, observation in enumerate(observed_path):
-    print(apf.current_time, observation)
+    #print(apf.current_time, observation)
     apf.update([observation], threshold_factor = resampling_threshold, method = 'mean', resampling_method = 'attractor{}'.format(resample_id), func = model5.conditional_pdf_o)
     apf_trajectory[i] = apf.particles.T
 #"""
@@ -93,3 +93,9 @@ with open(data_dir + 'Henon_true.npy', 'wb') as np_file:
 print(particles_trajectory[0])
 print(ensemble_trajectory[0])
 print(hidden_path.T)
+"""
+frame by frame
+"""
+print(ensemble_trajectory.shape, hidden_path.T.shape)
+plot.plot_frames([ensemble_trajectory, particles_trajectory, hidden_path], folder = image_dir + 'EnKF_vs_BPF_frames/', labels = ['EnKF', 'BPF', 'True'])
+plot.plot_frames([ensemble_trajectory, apf_trajectory, hidden_path], folder = image_dir + 'EnKF_vs_APF_frames/', labels = ['EnKF', 'APF0', 'True'])

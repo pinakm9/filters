@@ -243,7 +243,7 @@ class ParticleFilter(Filter):
         for observation in self.observed_path:
             self.compute_weights(observation = observation)
             self.resample(threshold_factor = threshold_factor, method = resampling_method, **params)
-            print('current time  = {}'.format(self.current_time))
+            #print('current time  = {}'.format(self.current_time))
             if method is not None:
                 self.compute_trajectory(method = method)
             self.current_time += 1

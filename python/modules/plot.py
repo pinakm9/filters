@@ -2,6 +2,8 @@ import numpy as np
 import utility as ut
 import  matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
+from PIL import Image
+
 
 class SignalPlotter(object):
     """
@@ -180,3 +182,52 @@ def plot_ensemble_trajectories(ensemble_trajectories, fig_size = (10, 10), color
     if saveas is not None:
         plt.savefig(fname = saveas)
     return ax
+
+
+@ut.timer
+def plot_frames(et_list, folder, labels, color_list = ['red', 'green', 'blue'], fig_size = (7, 7), dpi = 300):
+    """
+    Description:
+        Plots frames of multiple ensembles
+    """
+    time_span = len(et_list[0])
+    fig = plt.figure(figsize = fig_size, dpi = dpi)
+    for t in range(time_span):
+        print('Working on frame {} ...'.format(t))
+        ax = fig.add_subplot(111)
+        for i, et in enumerate(et_list):
+            if len(et.shape) > 2:
+                ax.scatter(et[t][0, :], et[t][1, :], color = color_list[i], label = labels[i])
+            else:
+                ax.scatter(et[t][0], et[t][1], color = color_list[i], label = labels[i])
+        plt.legend()
+        if not folder.endswith('/'):
+            folder += '/'
+        plt.savefig(folder + 'frame_{}.png'.format(t))
+        plt.clf()
+
+
+@ut.timer
+def im2pdf(im_folder, im_prefix, num_im, im_format, pdf_name):
+    """
+    Description:
+        Creates a pdf from a list of images
+
+    Args:
+        im_folder: folder that contains the images
+        im_prefix: the prefix that the image names start with
+        num_im: number of images to join
+        pdf_name: filename(path) for the pdf to be created
+    """
+    im_list = []
+    if not im_folder.endswith('/'):
+        im_folder += '/'
+    if not im_format.startswith('.'):
+        im_format = '.' + im_format
+    for i in range(num_im):
+        im_name = im_folder + im_prefix + str(i) + im_format
+        im = Image.open(im_name)
+        rgb_im = Image.new('RGB', im.size, (255, 255, 255))  # white background
+        rgb_im.paste(im, mask=im.split()[3])
+        im_list.append(rgb_im)
+    im_list[0].save(pdf_name, "PDF" ,resolution=300.0, save_all=True, append_images=im_list[1:])

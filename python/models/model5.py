@@ -32,7 +32,7 @@ data_dir = str(script_dir.parent.parent) + '/data/'
 x0 = atr.AttractorDB(db_path = data_dir + 'henon_db_single.h5', func = henon, dim = 2).burn_in()
 
 # create a deterministic Markov chain
-prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(x0,0.01*id))
+prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(x0, 0.01*id))
 process_noise = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mu, eps*id))
 func_h = lambda k, x, noise: np.array([1.0 - a*x[0]**2 + x[1], b*x[0]]) + noise
 conditional_pdf_h = lambda k, x, past: scipy.stats.multivariate_normal.pdf(x, mean = func_h(k, past, zero), cov = eps*id)

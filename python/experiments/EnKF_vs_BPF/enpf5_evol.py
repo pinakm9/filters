@@ -30,7 +30,7 @@ num_exprs = 10
 
 # set up configuration
 config = {'Henon a': a, 'Henon b': b, 'Particle count': particle_count, 'Number of experiments': num_exprs, 'Resampling threshold': resampling_threshold,\
-          'Evolution time': ev_time, 'Model': 'model5', 'Starting point': x0, 'Starting pt randomly generated on attractor': True}
+          'Evolution time': ev_time, 'Model': 'model5', 'Starting point': x0, 'Starting pt randomly generated on attractor': 'No, in large db'}
 cc = cf.ConfigCollector(expr_name = 'EnKF vs BPF - Ensemble Evolution', folder = script_dir)
 cc.add_params(config)
 cc.write()

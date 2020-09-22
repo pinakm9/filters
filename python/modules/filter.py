@@ -126,8 +126,8 @@ class ParticleFilter(Filter):
             if not os.path.isfile(self.record_path):
                 self.particle_description = {}
                 for i in range(self.dimension):
-                    self.particle_description['x' + str(i)] = tables.Float32Col(pos = i)
-                self.weight_description = {'w': tables.Float32Col(pos = 0)}
+                    self.particle_description['x' + str(i)] = tables.Float64Col(pos = i)
+                self.weight_description = {'w': tables.Float64Col(pos = 0)}
                 self.bool_description = {'bool': tables.BoolCol(pos = 0)}
                 hdf5 = tables.open_file(self.record_path, 'w')
                 hdf5.create_group('/', 'particles')
@@ -154,7 +154,9 @@ class ParticleFilter(Filter):
         if self.current_time > 0:
             self.particles = np.array([self.model.hidden_state.sims[self.current_time].algorithm(self.current_time, particle) for particle in self.particles])
         elif len(self.particles) != self.particle_count:
+            print('bababooey')
             self.particles = self.model.hidden_state.sims[0].generate(self.particle_count)
+            print(self.particles)
 
         # compute new weights
         self.prev_weights = self.weights

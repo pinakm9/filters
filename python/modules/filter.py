@@ -5,6 +5,8 @@ import utility as ut
 import simulate as sm
 import collections as cl
 import plot
+import os
+import tables
 
 class Model():
     """
@@ -51,6 +53,7 @@ class Filter():
         self.model = model
         self.current_time = 0
         self.computed_trajectory = np.empty((0, self.model.hidden_state.dimension))
+        self.dimension = self.model.hidden_state.dimension
 
     def compute_error(self, hidden_path):
         """
@@ -98,30 +101,47 @@ class ParticleFilter(Filter):
         weights: weights computed by the particle filter
         current_time: integer-valued time starting at 0 denoting index of current hidden state
     """
-    def __init__(self, model, particle_count, save_trajectories = False):
+    def __init__(self, model, particle_count, record_path = None, particles = None):
         """
         Args:
             model: a Model object containing the dynamic and measurement models
             particle_count: number of particles to be used
+            record_path: file (hdf5) path to record assimilation data
+            particles: custom particles to begin with, default = None
         """
+        # assign attributes
         super().__init__(model = model)
-        # draw self.particle_count samples from the prior distribution and reshape for hstacking later
-        self.particles = []
+        if particles is None:
+            self.particles = []
+        else:
+            self.particles = particles
         self.particle_count = particle_count
         self.weights = np.ones(particle_count)/particle_count
-        self.save_trajectories = save_trajectories
-        # figure out the dimension of the problem
-        sample = self.model.hidden_state.sims[0].algorithm()
-        if np.isscalar(sample):
-            self.dimension = 1
-        else:
-            self.dimension = len(sample)
-        if save_trajectories:
-            self.trajectories = [self.particles]
         self.resampling_tracker = []
 
+        # set up recording
+        if record_path is not None:
+            self.recording = True
+            self.record_path = record_path
+            if not os.path.isfile(self.record_path):
+                self.particle_description = {}
+                for i in range(self.dimension):
+                    self.particle_description['x' + str(i)] = tables.Float32Col(pos = i)
+                self.weight_description = {'w': tables.Float32Col(pos = 0)}
+                self.bool_description = {'bool': tables.BoolCol(pos = 0)}
+                hdf5 = tables.open_file(self.record_path, 'w')
+                hdf5.create_group('/', 'particles')
+                #print(hdf5.root.particles)
+                hdf5.create_group('/', 'weights')
+                #hdf5.create_group('/', 'analysis_weights')
+                rs = hdf5.create_table(hdf5.root, 'resampling', self.bool_description)
+                rs.flush()
+                hdf5.close()
+        else:
+            self.record = False
 
-    def compute_weights(self, observation):
+
+    def compute_weights(self, observation, particles = None):
         """
         Description:
             Updates weights according to the last observation
@@ -133,7 +153,7 @@ class ParticleFilter(Filter):
         # predict the new particles
         if self.current_time > 0:
             self.particles = np.array([self.model.hidden_state.sims[self.current_time].algorithm(self.current_time, particle) for particle in self.particles])
-        else:
+        elif len(self.particles) != self.particle_count:
             self.particles = self.model.hidden_state.sims[0].generate(self.particle_count)
 
         # compute new weights
@@ -143,13 +163,8 @@ class ParticleFilter(Filter):
             prob2 = self.model.observation.conditional_pdf(self.current_time, observation, self.particles[i])
             #prob3 = self.importance_pdf(new_particles[i], self.particles[i])
             self.weights[i] *= prob2
-        # print(self.weights.sum(), np.max(self.weights))
         # normalize weights
             self.weights /= self.weights.sum()
-
-        if self.save_trajectories:
-            self.trajectories = np.append(self.trajectories, [self.particles], axis = 0)
-        return self.weights
 
 
     def systematic_resample(self):
@@ -228,14 +243,35 @@ class ParticleFilter(Filter):
             self.computed_trajectory = np.append(self.computed_trajectory, [new_hidden_state], axis = 0)
         return self.computed_trajectory
 
+    def record(self):
+        """
+        Description:
+            Records assimilation steps
+        """
+        if self.recording:
+            hdf5 = tables.open_file(self.record_path, 'a')
+            weights = hdf5.create_table(hdf5.root.weights, 'time_' + str(self.current_time), self.weight_description)
+            weights.append(self.weights)
+            weights.flush()
+            particles = hdf5.create_table(hdf5.root.particles, 'time_' + str(self.current_time), self.particle_description)
+            particles.append(self.particles)
+            particles.flush()
+            resampling = hdf5.root.resampling
+            resampling.append(np.array([self.resampling_tracker[self.current_time]], dtype=np.bool_))
+            resampling.flush()
+            hdf5.close()
+
     @ut.timer
-    def update(self, observations, threshold_factor = 0.1, method = 'mean', resampling_method = 'systematic', **params):
+    def update(self, observations, threshold_factor = 0.1, method = 'mean', resampling_method = 'systematic', record_path = None, **params):
         """
         Description:
             Updates using all the obeservations using self.compute_weights and self.resample
         Args:
             observations: list/np.array of observations to pass to self.compute_weights
             threshold_factor: fraction of self.particle_count which the effective particle count has to surpass in order to stop resampling
+            method: method for computing trajectory, default = 'mean'
+            resampling method: method for resampling, default = 'systematic'
+            record_path: file path for storing evolution of particles
         Returns:
             self.weights
         """
@@ -243,9 +279,9 @@ class ParticleFilter(Filter):
         for observation in self.observed_path:
             self.compute_weights(observation = observation)
             self.resample(threshold_factor = threshold_factor, method = resampling_method, **params)
-            #print('current time  = {}'.format(self.current_time))
             if method is not None:
                 self.compute_trajectory(method = method)
+            self.record()
             self.current_time += 1
         return self.weights
 
@@ -376,7 +412,6 @@ class AttractorPF(ParticleFilter):
         for observation in self.observed_path:
             self.compute_weights(observation = observation)
             self.resample(threshold_factor = threshold_factor, method = resampling_method, **{**params, **{'observation': observation}})
-            #print('current time  = {}'.format(self.current_time))
             if method is not None:
                 self.compute_trajectory(method = method)
             self.current_time += 1

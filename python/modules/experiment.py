@@ -4,6 +4,7 @@ import scipy
 import utility as ut
 import matplotlib.pyplot as plt
 import plot
+import os
 import warnings
 warnings.filterwarnings("error")
 

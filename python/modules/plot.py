@@ -129,6 +129,16 @@ class SignalPlotter(object):
             #print("file_path was not specified. So the image file was not saved.")
         return fig, ax
 
+def random_color(as_str=True, alpha=0.5):
+	rgb = [random.randint(0,255),
+		   random.randint(0,255),
+		   random.randint(0,255)]
+	if as_str:
+		return "rgba"+str(tuple(rgb+[alpha]))
+	else:
+		# Normalize & listify
+		return list(np.array(rgb)/255) + [alpha]
+
 
 def plot_ensemble_trajectory(ensemble_trajectory, ax = None, fig_size = (10, 10), color = 'blue', mean = False, show = True, saveas = None):
     """
@@ -146,7 +156,7 @@ def plot_ensemble_trajectory(ensemble_trajectory, ax = None, fig_size = (10, 10)
         fig = plt.figure(figsize = fig_size)
         ax = fig.add_subplot(111)
     for ensemble in ensemble_trajectory:
-        ax.scatter(ensemble[0, :], ensemble[1, :], color = ut.random_color(as_str = False))
+        ax.scatter(ensemble[0, :], ensemble[1, :], color = random_color(as_str = False))
     if mean:
         x = [np.average(e[0, :]) for e in ensemble_trajectory]
         y = [np.average(e[1, :]) for e in ensemble_trajectory]

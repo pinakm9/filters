@@ -3,8 +3,8 @@
 import sys
 from pathlib import Path
 from os.path import dirname, realpath
-script_path = Path(dirname(realpath(__file__)))
-module_dir = str(script_path.parent.parent)
+script_dir = Path(dirname(realpath(__file__)))
+module_dir = str(script_dir.parent.parent)
 sys.path.insert(0, module_dir + '/modules')
 sys.path.insert(0, module_dir + '/models')
 # import remaining modules
@@ -16,19 +16,27 @@ import matplotlib.pyplot as plt
 import plot
 import attract as atr
 import model5
-
+import config as cf
 # set parameters
 s = int(sys.argv[1])
 model, a, b = model5.model(size = s)
 db_id = '14_3_medium'
-db_path = str(script_path.parent.parent.parent) + '/data/henon_attractor_{}.h5'.format(db_id)
+db_path = str(script_dir.parent.parent.parent) + '/data/henon_attractor_{}.h5'.format(db_id)
 attractor_sampler = atr.AttractorSampler(db_path = db_path)
 resample_id = '0'
-particle_count = 1000
+particle_count = 100
 resampling_threshold = 0.1
 num_exprs = 10
 
+# set up configuration
+config = {'Henon a': a, 'Henon b': b, 'Attractor database': db_path, 'Attractor id': db_id, 'Attractor resampling scheme': resample_id,\
+          'Particle count': particle_count, 'Number of experiments': num_exprs, 'Resampling threshold': resampling_threshold, 'Evolution time': s, 'Model': 'model5',
+          'Starting point': 'randomly generated in the attractor'}
+cc = cf.ConfigCollector(expr_name = 'EnKF vs BPF - performance', folder = script_dir)
+cc.add_params(config)
+cc.write()
 
+# initialize error containers
 enkf_abs_err = np.zeros(s)
 bpf_abs_err = np.zeros(s)
 apf_abs_err = np.zeros(s)
@@ -61,7 +69,7 @@ print('BPF error norm = {}'.format(np.linalg.norm(bpf_abs_err)))
 print('APF0 error norm = {}'.format(np.linalg.norm(apf_abs_err)))
 
 
-image_dir = str(script_path.parent.parent.parent) + '/images/EnKF_vs_BPF/'
+image_dir = str(script_dir.parent.parent.parent) + '/images/EnKF_vs_BPF/'
 fig = plt.figure(figsize = (8,8))
 ax = fig.add_subplot(111)
 t = list(range(s))

@@ -465,8 +465,7 @@ class AttractorSampler:
                 fz += 1
         # find the closest seeds for the necessary points
         cell_idx = self.closest_seeds(pts[:fz])
-        print(offsprings[:fz])
-        print('total_offsprings = {}, max = {}'.format(sum(offsprings), offsprings[0]))
+        print('offsprings: ', offsprings[:fz])
         # resample keeping the parent point
         start = 0
         end = 0

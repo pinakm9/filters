@@ -56,6 +56,14 @@ def jac_h_x(k, x):
 def jac_o_x(k, x):
     return H + 0.5*np.diag(np.cos(x))
 """
+# generates a trajectory according to the dynamic model
+def gen_path(length):
+    path = np.zeros((length, 2), dtype = 'float64')
+    x = x0
+    for i in range(length):
+        path[i] = x
+        x = func_h(i, x, zero)
+    return path
 
 # creates a Model object to feed the filter / combine the models
 def model(size):

@@ -1,9 +1,0 @@
-Evolution time: 100
-Henon a: 1.4
-Henon b: 0.3
-Model: model5
-Number of experiments: 10
-Particle count: 100
-Resampling threshold: 0.1
-Starting point: [ 1.26532 -0.033  ]
-Starting pt randomly generated on attractor: True

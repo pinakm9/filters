@@ -441,7 +441,7 @@ class AttractorSampler:
     def resample0(self, pts, weights):
         """
         Description:
-            Replaces pts with attractor points. Weights decide number of offsprings
+            Replaces pts with attractor points. Weights decide number of offsprings, original point is kept if the number of offsprings is positive
 
         Args:
             pts: points to be replaced

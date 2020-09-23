@@ -302,6 +302,7 @@ class ParticleFilter(Filter):
                            show = show, file_path = file_path, title = title)
 
 
+
 class AttractorPF(ParticleFilter):
     """
     Description:
@@ -786,6 +787,27 @@ class EnsembleKF(KalmanFilter):
             ensemble.append(self.ensemble.T)
             ensemble.flush()
             hdf5.close()
+
+    @ut.timer
+    def plot_ensembles(self, fig_size = (10, 10), pt_size = 5, num_bins = 30, hist_h = 0.2, hist_w = 0.2, hist_gap = 0.05, dpi = 300,\
+                       colors = ['orange', 'green'], alpha = 0.5):
+        """
+        Description:
+            Plots prior and posterior on a single page in a pdf
+        """
+        hdf5 = tables.open_file(self.record_path, 'r')
+        ep = plot.EnsemblePlotter(fig_size = fig_size, pt_size = pt_size, num_bins = num_bins, hist_h = hist_h,\
+                                  hist_w = hist_w, hist_gap = hist_gap)
+        w = np.ones(self.ensemble_size)
+        for prior in hdf5.walk_nodes(hdf5.root.prior_ensemble, 'Table'):
+            t = int(prior.name.split('_')[-1])
+            ens_pr = prior.read().tolist()
+            ens_po = getattr(hdf5.root.posterior_ensemble, 'time_' + str(t)).read().tolist()
+            file_path = os.path.dirname(self.record_path) + '/enkf_ensembles_{}.png'.format(t)
+            ep.plot_weighted_ensembles_2D(ensembles = [ens_pr, ens_po], weights = [w, w], ens_labels = ['prior', 'posterior'],\
+                                          colors = colors, file_path = file_path, alpha = alpha, weight_histogram = False)
+
+
 
 
 class QuadraticImplicitPF(ParticleFilter):

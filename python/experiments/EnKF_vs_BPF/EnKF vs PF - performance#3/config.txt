@@ -1,9 +1,0 @@
-Attractor database: C:\Users\pinak\Documents\GitHub\filters/data/henon_attractor_14_3_medium.h5
-Attractor id: 14_3_medium
-Attractor resampling scheme: 0
-Evolution time: 100
-Henon a: 1.4
-Henon b: 0.3
-Number of experiments: 10
-Particle count: 100
-Resampling threshold: 0.1

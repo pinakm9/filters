@@ -129,6 +129,58 @@ class SignalPlotter(object):
             #print("file_path was not specified. So the image file was not saved.")
         return fig, ax
 
+
+class EnsemblePlotter:
+    """
+    Description:
+        Plots evolution of ensembles
+    """
+    def __init__(self, fig_size = (10, 10), pt_size = 5, num_bins = 30, hist_h = 0.2, hist_w = 0.2, hist_gap = 0.05, dpi = 300):
+        self.fig_size = fig_size
+        self.pt_size = pt_size
+        self.num_bins = num_bins
+        self.hist_h = hist_h
+        self.hist_w = hist_w
+        self.hist_gap = hist_gap
+        # generate figure for the plot
+        self.fig = plt.figure(figsize = self.fig_size, dpi = dpi)
+
+    @ut.timer
+    def plot_weighted_ensembles_2D(self, ensembles, weights, ens_labels, colors, file_path, alpha = 0.5, weight_histogram = True):
+        """
+        Description:
+            Plots a 2D weighted ensemble
+        Args:
+            ensemble: ensemble to be plotted
+            weights: weights of particles
+            file_path: path where the plot is to be saved
+            ax: axes of the plot
+            color: color of the points plotted
+        """
+        # check the number of ensembles to be plotted
+        if len(np.array(ensembles).shape) < 3:
+            ensembles = [ensembles]
+            weights = [weights]
+        self.fig.clf()
+        ax = self.fig.add_subplot(111)
+        for k, ensemble in enumerate(ensembles):
+            # plot weighted points
+            for i, pt in enumerate(ensemble):
+                ax.scatter(pt[0], pt[1], s = self.pt_size * weights[k][i], color = colors[k], label = ens_labels[k] if i == 0 else None)
+            # plot weight histogram if needed
+            if weight_histogram:
+                left, bottom, width, height = [0.17 + (self.hist_w + self.hist_gap)*k, 0.67, self.hist_w, self.hist_h]
+                h_ax = self.fig.add_axes([left, bottom, width, height])
+                h_ax.hist(weights, bins = self.num_bins, label = ens_labels[k])
+                h_ax.legend()
+        # save and clear figure for reuse
+        ax.legend()
+        plt.savefig(file_path)
+        self.fig.clf()
+
+
+
+
 def random_color(as_str=True, alpha=0.5):
 	rgb = [random.randint(0,255),
 		   random.randint(0,255),

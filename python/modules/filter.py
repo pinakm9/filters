@@ -256,9 +256,8 @@ class ParticleFilter(Filter):
             particles = hdf5.create_table(hdf5.root.particles, 'time_' + str(self.current_time), self.particle_description)
             particles.append(self.particles)
             particles.flush()
-            resampling = hdf5.root.resampling
-            resampling.append(np.array([self.resampling_tracker[self.current_time]], dtype=np.bool_))
-            resampling.flush()
+            hdf5.root.resampling.append(np.array([self.resampling_tracker[self.current_time]], dtype=np.bool_))
+            hdf5.root.resampling.flush()
             hdf5.close()
 
     @ut.timer
@@ -747,6 +746,10 @@ class EnsembleKF(KalmanFilter):
                 hdf5 = tables.open_file(self.record_path, 'w')
                 hdf5.create_group('/', 'prior_ensemble')
                 hdf5.create_group('/', 'posterior_ensemble')
+                observation_description = {}
+                for i in range(model.observation.dimension):
+                    observation_description['x' + str(i)] = tables.Float64Col(pos = i)
+                hdf5.create_table(hdf5.root, 'observation', observation_description)
                 hdf5.close()
         else:
             self.record = False
@@ -775,7 +778,8 @@ class EnsembleKF(KalmanFilter):
             ensemble = hdf5.create_table(hdf5.root.prior_ensemble, 'time_' + str(self.current_time), self.particle_description)
             ensemble.append(self.ensemble.T)
             ensemble.flush()
-
+            hdf5.root.observation.append(np.array(observation, dtype = np.float64))
+            hdf5.root.observation.flush()
 
         # update ensemble
         self.ensemble += np.dot(K, self.D - np.dot(H_x, self.ensemble))
@@ -789,8 +793,9 @@ class EnsembleKF(KalmanFilter):
             hdf5.close()
 
     @ut.timer
-    def plot_ensembles(self, fig_size = (10, 10), pt_size = 5, num_bins = 30, hist_h = 0.2, hist_w = 0.2, hist_gap = 0.05, dpi = 300,\
-                       colors = ['orange', 'green'], alpha = 0.5):
+    def plot_ensembles(self, hidden_path, hidden_color = 'red', show_obs_inv = False, obs_inv_color = 'black',\
+                       fig_size = (10, 10), pt_size = 5, num_bins = 30, hist_h = 0.2, hist_w = 0.2, hist_gap = 0.05,\
+                       dpi = 300, ens_colors = ['orange', 'green'], alpha = 0.5):
         """
         Description:
             Plots prior and posterior on a single page in a pdf
@@ -799,13 +804,27 @@ class EnsembleKF(KalmanFilter):
         ep = plot.EnsemblePlotter(fig_size = fig_size, pt_size = pt_size, num_bins = num_bins, hist_h = hist_h,\
                                   hist_w = hist_w, hist_gap = hist_gap)
         w = np.ones(self.ensemble_size)
+        observation = hdf5.root.observation.read().tolist()
         for prior in hdf5.walk_nodes(hdf5.root.prior_ensemble, 'Table'):
             t = int(prior.name.split('_')[-1])
             ens_pr = prior.read().tolist()
             ens_po = getattr(hdf5.root.posterior_ensemble, 'time_' + str(t)).read().tolist()
             file_path = os.path.dirname(self.record_path) + '/enkf_ensembles_{}.png'.format(t)
+            extra_data = [hidden_path[t]]
+            extra_plt_fns = ['scatter']
+            extra_styles = [{'marker': '$T$'}]
+            extra_labels = ['true state']
+            extra_colors = [hidden_color]
+            if show_obs_inv:
+                extra_data.append(np.linalg.solve(self.jac_o_x(t, hidden_path[t]), observation[t]))
+                extra_plt_fns.append('scatter')
+                extra_styles.append({'marker': '$O$'})
+                extra_labels.append('inverse of observation')
+                extra_colors.append(obs_inv_color)
             ep.plot_weighted_ensembles_2D(ensembles = [ens_pr, ens_po], weights = [w, w], ens_labels = ['prior', 'posterior'],\
-                                          colors = colors, file_path = file_path, alpha = alpha, weight_histogram = False)
+                                          colors = ens_colors, file_path = file_path, alpha = alpha, weight_histogram = False,\
+                                          extra_data = extra_data, extra_plt_fns = extra_plt_fns, extra_styles = extra_styles,
+                                          extra_labels = extra_labels, extra_colors = extra_colors)
 
 
 

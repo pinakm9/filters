@@ -146,7 +146,8 @@ class EnsemblePlotter:
         self.fig = plt.figure(figsize = self.fig_size, dpi = dpi)
 
     @ut.timer
-    def plot_weighted_ensembles_2D(self, ensembles, weights, ens_labels, colors, file_path, alpha = 0.5, weight_histogram = True):
+    def plot_weighted_ensembles_2D(self, ensembles, weights, ens_labels, colors, file_path, alpha = 0.5, weight_histogram = True,\
+                                   extra_data = [], extra_plt_fns = [], extra_styles = [], extra_labels = [], extra_colors = []):
         """
         Description:
             Plots a 2D weighted ensemble
@@ -163,6 +164,7 @@ class EnsemblePlotter:
             weights = [weights]
         self.fig.clf()
         ax = self.fig.add_subplot(111)
+        # plot ensembles
         for k, ensemble in enumerate(ensembles):
             # plot weighted points
             for i, pt in enumerate(ensemble):
@@ -173,6 +175,15 @@ class EnsemblePlotter:
                 h_ax = self.fig.add_axes([left, bottom, width, height])
                 h_ax.hist(weights, bins = self.num_bins, label = ens_labels[k])
                 h_ax.legend()
+        # plot extra data if needed
+        for k, ed in enumerate(extra_data):
+            ed = np.array(ed)
+            if len(ed.shape) < 2:
+                getattr(ax, extra_plt_fns[k])(ed[0], ed[1], color = extra_colors[k], label = extra_labels[k], **extra_styles[k])
+            elif ed.shape[0] > 2:
+                getattr(ax, extra_plt_fns[k])(ed[:, 0], ed[:, 1], color = extra_colors[k], label = extra_labels[k], **extra_styles[k])
+            else:
+                getattr(ax, extra_plt_fns[k])(ed[0, :], ed[1, :], color = extra_colors[k], label = extra_labels[k], **extra_styles[k])
         # save and clear figure for reuse
         ax.legend()
         plt.savefig(file_path)

@@ -127,6 +127,9 @@ class ParticleFilter(Filter):
                 self.particle_description = {}
                 for i in range(self.dimension):
                     self.particle_description['x' + str(i)] = tables.Float64Col(pos = i)
+                observation_description = {}
+                for i in range(self.model.observation.dimension):
+                    observation_description['x' + str(i)] = tables.Float64Col(pos = i)
                 self.weight_description = {'w': tables.Float64Col(pos = 0)}
                 self.bool_description = {'bool': tables.BoolCol(pos = 0)}
                 hdf5 = tables.open_file(self.record_path, 'w')
@@ -136,6 +139,8 @@ class ParticleFilter(Filter):
                 #hdf5.create_group('/', 'analysis_weights')
                 rs = hdf5.create_table(hdf5.root, 'resampling', self.bool_description)
                 rs.flush()
+                obs = hdf5.create_table(hdf5.root, 'observation', observation_description)
+                obs.flush()
                 hdf5.close()
         else:
             self.record = False
@@ -243,7 +248,7 @@ class ParticleFilter(Filter):
             self.computed_trajectory = np.append(self.computed_trajectory, [new_hidden_state], axis = 0)
         return self.computed_trajectory
 
-    def record(self):
+    def record(self, observation):
         """
         Description:
             Records assimilation steps
@@ -258,6 +263,8 @@ class ParticleFilter(Filter):
             particles.flush()
             hdf5.root.resampling.append(np.array([self.resampling_tracker[self.current_time]], dtype=np.bool_))
             hdf5.root.resampling.flush()
+            hdf5.root.observation.append(np.array(observation, dtype = np.float64))
+            hdf5.root.observation.flush()
             hdf5.close()
 
     @ut.timer
@@ -280,7 +287,7 @@ class ParticleFilter(Filter):
             self.resample(threshold_factor = threshold_factor, method = resampling_method, **params)
             if method is not None:
                 self.compute_trajectory(method = method)
-            self.record()
+            self.record(observation)
             self.current_time += 1
         return self.weights
 

@@ -172,8 +172,14 @@ class EnsemblePlotter:
             # plot weight histogram if needed
             if weight_histogram:
                 left, bottom, width, height = [0.17 + (self.hist_w + self.hist_gap)*k, 0.67, self.hist_w, self.hist_h]
+                # check if log scale is needed
+                w_max, w_min = max(weights[k]), min(weights[k])
+                if w_max/w_min > 100.:
+                    w = np.log(weights[k])
+                else:
+                    w = weights[k]
                 h_ax = self.fig.add_axes([left, bottom, width, height])
-                h_ax.hist(weights, bins = self.num_bins, label = ens_labels[k])
+                h_ax.hist(w, bins = self.num_bins, label = ens_labels[k])
                 h_ax.legend()
         # plot extra data if needed
         for k, ed in enumerate(extra_data):

@@ -141,7 +141,7 @@ class ParticleFilter(Filter):
             self.record = False
 
 
-    def compute_weights(self, observation, particles = None):
+    def one_step_update(self, observation, particles = None):
         """
         Description:
             Updates weights according to the last observation
@@ -154,9 +154,7 @@ class ParticleFilter(Filter):
         if self.current_time > 0:
             self.particles = np.array([self.model.hidden_state.sims[self.current_time].algorithm(self.current_time, particle) for particle in self.particles])
         elif len(self.particles) != self.particle_count:
-            print('bababooey')
             self.particles = self.model.hidden_state.sims[0].generate(self.particle_count)
-            print(self.particles)
 
         # compute new weights
         self.prev_weights = self.weights
@@ -267,9 +265,9 @@ class ParticleFilter(Filter):
     def update(self, observations, threshold_factor = 0.1, method = 'mean', resampling_method = 'systematic', record_path = None, **params):
         """
         Description:
-            Updates using all the obeservations using self.compute_weights and self.resample
+            Updates using all the obeservations using self.one_step_update and self.resample
         Args:
-            observations: list/np.array of observations to pass to self.compute_weights
+            observations: list/np.array of observations to pass to self.one_step_update
             threshold_factor: fraction of self.particle_count which the effective particle count has to surpass in order to stop resampling
             method: method for computing trajectory, default = 'mean'
             resampling method: method for resampling, default = 'systematic'
@@ -279,7 +277,7 @@ class ParticleFilter(Filter):
         """
         self.observed_path = observations
         for observation in self.observed_path:
-            self.compute_weights(observation = observation)
+            self.one_step_update(observation = observation)
             self.resample(threshold_factor = threshold_factor, method = resampling_method, **params)
             if method is not None:
                 self.compute_trajectory(method = method)
@@ -412,7 +410,7 @@ class AttractorPF(ParticleFilter):
     def update(self, observations, threshold_factor = 0.1, method = 'mean', resampling_method = 'attractor', **params):
         self.observed_path = observations
         for observation in self.observed_path:
-            self.compute_weights(observation = observation)
+            self.one_step_update(observation = observation)
             self.resample(threshold_factor = threshold_factor, method = resampling_method, **{**params, **{'observation': observation}})
             if method is not None:
                 self.compute_trajectory(method = method)
@@ -470,7 +468,7 @@ class GlobalSamplingUPF(ParticleFilter):
             self.sigma_pts[2*i + 1] = aug_mean + column
             self.sigma_pts[2*(i + 1)] = aug_mean - column
 
-    def compute_weights(self, observation):
+    def one_step_update(self, observation):
         if self.current_time > 0:
             # Compute chi and gamma
             chi = np.zeros((2*self.aug_dimension + 1, self.dimension))
@@ -579,16 +577,16 @@ class GlobalSamplingUPF(ParticleFilter):
     def update(self, observations, threshold_factor = 0.1, method = 'mean', mcmc = False):
         """
         Description:
-            Updates using all the obeservations using self.compute_weights and self.resample
+            Updates using all the obeservations using self.one_step_update and self.resample
         Args:
-            observations: list/np.array of observations to pass to self.compute_weights
+            observations: list/np.array of observations to pass to self.one_step_update
             threshold_factor: fraction of self.particle_count which the effective particle count has to surpass in order to stop resampling
         Returns:
             self.weights
         """
         self.observed_path = observations
         for observation in self.observed_path:
-            self.compute_weights(observation = observation)
+            self.one_step_update(observation = observation)
             resampled = self.resample(threshold_factor = threshold_factor)
             if resampled is True and mcmc is True:
                 self.mcmc(observation = observation)
@@ -618,7 +616,7 @@ class ImplicitPF(ParticleFilter):
         self.argmin_F = argmin_F
         self.grad_F = grad_F
 
-    def compute_weights(self, observation):
+    def one_step_update(self, observation):
         """
         Description:
             Updates weights according to the last observation
@@ -684,6 +682,7 @@ class KalmanFilter(Filter):
         self.process_noise_cov = self.model.hidden_state.sigma
         self.measurement_noise_cov = self.model.observation.sigma
 
+
     def one_step_update(self, observation):
         # prediction
         #print('self.jac_o_x= {}'.format(self.jac_o_x(self.current_time, self.zero_h)))
@@ -708,7 +707,7 @@ class KalmanFilter(Filter):
         Description:
             Updates using all the obeservations
         Args:
-            observations: list/np.array of observations to pass to self.compute_weights
+            observations: list/np.array of observations to pass to self.one_step_update
         """
         self.observed_path = observations
         for observation in self.observed_path:
@@ -729,12 +728,27 @@ class EnsembleKF(KalmanFilter):
         ensemble: matrix containing the ensemble members in the columns
         D: generated data matrix
     """
-    def __init__(self, model, ensemble_size, jac_h_x = None, jac_h_n = None, jac_o_x = None, jac_o_n = None):
+    def __init__(self, model, ensemble_size, record_path = None, jac_h_x = None, jac_h_n = None, jac_o_x = None, jac_o_n = None):
         super().__init__(model = model, mean0 = None, cov0 = None, jac_h_x = jac_h_x, jac_h_n = jac_h_n, jac_o_x = jac_o_x, jac_o_n = jac_o_n)
         self.ensemble_size = ensemble_size
         #self.H = self.model.observation.func(self.current_time, np.identity(self.model.hidden_state.dimension), self.zero_o)
         self.ensemble = np.zeros((self.model.hidden_state.dimension, self.ensemble_size))
         self.D = np.zeros((self.model.observation.dimension, self.ensemble_size))
+
+        # set up recording
+        if record_path is not None:
+            self.recording = True
+            self.record_path = record_path
+            if not os.path.isfile(self.record_path):
+                self.particle_description = {}
+                for i in range(self.dimension):
+                    self.particle_description['x' + str(i)] = tables.Float64Col(pos = i)
+                hdf5 = tables.open_file(self.record_path, 'w')
+                hdf5.create_group('/', 'prior_ensemble')
+                hdf5.create_group('/', 'posterior_ensemble')
+                hdf5.close()
+        else:
+            self.record = False
 
     def one_step_update(self, observation):
         # create data matrix and predict new ensemble
@@ -754,9 +768,24 @@ class EnsembleKF(KalmanFilter):
         S = np.linalg.multi_dot([H_x, C, H_x.T]) + np.linalg.multi_dot([H_n, self.measurement_noise_cov, H_n.T])#np.linalg.multi_dot([self.H, C, self.H.T]) + self.measurement_noise_cov
         K = np.linalg.multi_dot([C, H_x.T, np.linalg.inv(S)])
 
+        # record prior ensemble
+        if self.recording:
+            hdf5 = tables.open_file(self.record_path, 'a')
+            ensemble = hdf5.create_table(hdf5.root.prior_ensemble, 'time_' + str(self.current_time), self.particle_description)
+            ensemble.append(self.ensemble.T)
+            ensemble.flush()
+
+
         # update ensemble
         self.ensemble += np.dot(K, self.D - np.dot(H_x, self.ensemble))
         self.mean = np.average(self.ensemble, weights = [1.0/self.ensemble_size]*self.ensemble_size, axis = 1)
+
+        # record posterior ensemble
+        if self.recording:
+            ensemble = hdf5.create_table(hdf5.root.posterior_ensemble, 'time_' + str(self.current_time), self.particle_description)
+            ensemble.append(self.ensemble.T)
+            ensemble.flush()
+            hdf5.close()
 
 
 class QuadraticImplicitPF(ParticleFilter):
@@ -785,7 +814,7 @@ class QuadraticImplicitPF(ParticleFilter):
 
         self.F = F_k
 
-    def compute_weights(self, observation):
+    def one_step_update(self, observation):
         """
         Description:
             Updates weights according to the last observation

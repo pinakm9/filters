@@ -7,6 +7,7 @@ import collections as cl
 import plot
 import os
 import tables
+import copy
 
 class Model():
     """
@@ -307,6 +308,43 @@ class ParticleFilter(Filter):
         plot.SignalPlotter(signals = signals).plot_signals(labels = labels, styles = styles, plt_fns = plt_fns, colors = colors,\
                            show = show, file_path = file_path, title = title)
 
+    @ut.timer
+    def plot_ensembles(self, hidden_path, hidden_color = 'red', obs_inv = None, obs_inv_color = 'black',\
+                       fig_size = (10, 10), pt_size = 1, num_bins = 30, size_factor = 5,\
+                       dpi = 300, ens_colors = ['orange', 'green'], alpha = 0.5):
+        """
+        Description:
+            Plots prior and posterior on a single page in a pdf
+        """
+        hdf5 = tables.open_file(self.record_path, 'r')
+        ep = plot.EnsemblePlotter(fig_size = fig_size, pt_size = pt_size, num_bins = num_bins, size_factor = size_factor, dpi = dpi)
+        observations = hdf5.root.observation.read().tolist()
+        weights_prior = np.ones(self.particle_count)/self.particle_count
+        for t, observation in enumerate(observations):
+            file_path = os.path.dirname(self.record_path) + '/pf_ensembles_{}.png'.format(t)
+            particles = getattr(hdf5.root.particles, 'time_' + str(t)).read().tolist()
+            weights_posterior = np.array(getattr(hdf5.root.weights, 'time_' + str(t)).read().tolist()).reshape(self.particle_count,)
+            extra_data = [hidden_path[t]]
+            extra_plt_fns = ['scatter']
+            extra_styles = [{'marker': '$T$'}]
+            extra_labels = ['true state']
+            extra_colors = [hidden_color]
+            if obs_inv is not None:
+                if isinstance(obs_inv, np.ndarray):
+                    obs_i = obs_inv[t]
+                else:
+                    obs_i = np.linalg.solve(self.model.observation.func(t, np.eye(self.dimension), np.zeros(self.dimension)), observation)
+                extra_data.append(obs_i)
+                extra_plt_fns.append('scatter')
+                extra_styles.append({'marker': '$O$'})
+                extra_labels.append('inverse of observation')
+                extra_colors.append(obs_inv_color)
+            ep.plot_weighted_ensembles_2D(ensembles = [particles, particles], weights = [weights_prior, weights_posterior],\
+                                          ens_labels = ['prior', 'posterior'], colors = ens_colors, file_path = file_path,\
+                                          alpha = alpha, weight_histogram = True, log_weight = True, extra_data = extra_data,\
+                                          extra_plt_fns = extra_plt_fns, extra_styles = extra_styles,\
+                                          extra_labels = extra_labels, extra_colors = extra_colors)
+            weights_prior = copy.deepcopy(weights_posterior)
 
 
 class AttractorPF(ParticleFilter):
@@ -800,21 +838,19 @@ class EnsembleKF(KalmanFilter):
             hdf5.close()
 
     @ut.timer
-    def plot_ensembles(self, hidden_path, hidden_color = 'red', show_obs_inv = False, obs_inv_color = 'black',\
-                       fig_size = (10, 10), pt_size = 5, num_bins = 30, hist_h = 0.2, hist_w = 0.2, hist_gap = 0.05,\
+    def plot_ensembles(self, hidden_path, hidden_color = 'red', obs_inv = None, obs_inv_color = 'black',\
+                       fig_size = (10, 10), pt_size = 1, num_bins = 30, size_factor = 5,\
                        dpi = 300, ens_colors = ['orange', 'green'], alpha = 0.5):
         """
         Description:
             Plots prior and posterior on a single page in a pdf
         """
         hdf5 = tables.open_file(self.record_path, 'r')
-        ep = plot.EnsemblePlotter(fig_size = fig_size, pt_size = pt_size, num_bins = num_bins, hist_h = hist_h,\
-                                  hist_w = hist_w, hist_gap = hist_gap)
+        ep = plot.EnsemblePlotter(fig_size = fig_size, pt_size = pt_size, num_bins = num_bins, size_factor = size_factor, dpi = dpi)
         w = np.ones(self.ensemble_size)
-        observation = hdf5.root.observation.read().tolist()
-        for prior in hdf5.walk_nodes(hdf5.root.prior_ensemble, 'Table'):
-            t = int(prior.name.split('_')[-1])
-            ens_pr = prior.read().tolist()
+        observations = hdf5.root.observation.read().tolist()
+        for t, observation in enumerate(observations):
+            ens_pr = getattr(hdf5.root.prior_ensemble, 'time_' + str(t)).read().tolist()
             ens_po = getattr(hdf5.root.posterior_ensemble, 'time_' + str(t)).read().tolist()
             file_path = os.path.dirname(self.record_path) + '/enkf_ensembles_{}.png'.format(t)
             extra_data = [hidden_path[t]]
@@ -822,14 +858,19 @@ class EnsembleKF(KalmanFilter):
             extra_styles = [{'marker': '$T$'}]
             extra_labels = ['true state']
             extra_colors = [hidden_color]
-            if show_obs_inv:
-                extra_data.append(np.linalg.solve(self.jac_o_x(t, hidden_path[t]), observation[t]))
+
+            if obs_inv is not None:
+                if isinstance(obs_inv, np.ndarray):
+                    obs_i = obs_inv[t]
+                else:
+                    obs_i = np.linalg.solve(self.model.observation.func(t, np.eye(self.dimension), np.zeros(self.dimension)), observation)
+                extra_data.append(obs_i)
                 extra_plt_fns.append('scatter')
                 extra_styles.append({'marker': '$O$'})
                 extra_labels.append('inverse of observation')
                 extra_colors.append(obs_inv_color)
             ep.plot_weighted_ensembles_2D(ensembles = [ens_pr, ens_po], weights = [w, w], ens_labels = ['prior', 'posterior'],\
-                                          colors = ens_colors, file_path = file_path, alpha = alpha, weight_histogram = False,\
+                                          colors = ens_colors, file_path = file_path, alpha = alpha, weight_histogram = False, log_weight = False,\
                                           extra_data = extra_data, extra_plt_fns = extra_plt_fns, extra_styles = extra_styles,
                                           extra_labels = extra_labels, extra_colors = extra_colors)
 

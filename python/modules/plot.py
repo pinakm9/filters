@@ -135,19 +135,18 @@ class EnsemblePlotter:
     Description:
         Plots evolution of ensembles
     """
-    def __init__(self, fig_size = (10, 10), pt_size = 5, num_bins = 30, hist_h = 0.2, hist_w = 0.2, hist_gap = 0.05, dpi = 300):
+    def __init__(self, fig_size = (10, 10), pt_size = 1, num_bins = 30, size_factor = 5, dpi = 300):
         self.fig_size = fig_size
         self.pt_size = pt_size
         self.num_bins = num_bins
-        self.hist_h = hist_h
-        self.hist_w = hist_w
-        self.hist_gap = hist_gap
+        self.size_factor = size_factor
+
         # generate figure for the plot
         self.fig = plt.figure(figsize = self.fig_size, dpi = dpi)
 
     @ut.timer
     def plot_weighted_ensembles_2D(self, ensembles, weights, ens_labels, colors, file_path, alpha = 0.5, weight_histogram = True,\
-                                   extra_data = [], extra_plt_fns = [], extra_styles = [], extra_labels = [], extra_colors = []):
+                                   log_weight = False, extra_data = [], extra_plt_fns = [], extra_styles = [], extra_labels = [], extra_colors = []):
         """
         Description:
             Plots a 2D weighted ensemble
@@ -162,24 +161,22 @@ class EnsemblePlotter:
         if len(np.array(ensembles).shape) < 3:
             ensembles = [ensembles]
             weights = [weights]
+        log_weights = np.log(weights)
+        l = len(ensembles)
         self.fig.clf()
-        ax = self.fig.add_subplot(111)
+        plt.figure(self.fig.number)
+        ax = plt.subplot2grid((self.size_factor*l, self.size_factor*l), (0, 0), rowspan = self.size_factor*l, colspan = (self.size_factor - 1)*l)
         # plot ensembles
         for k, ensemble in enumerate(ensembles):
             # plot weighted points
+            log_weights_max = np.amax(log_weights[k])
             for i, pt in enumerate(ensemble):
-                ax.scatter(pt[0], pt[1], s = self.pt_size * weights[k][i], color = colors[k], label = ens_labels[k] if i == 0 else None)
+                ax.scatter(pt[0], pt[1], s = self.pt_size * (log_weights_max/log_weights[k][i]), color = colors[k], label = ens_labels[k] if i == 0 else None)
             # plot weight histogram if needed
             if weight_histogram:
-                left, bottom, width, height = [0.17 + (self.hist_w + self.hist_gap)*k, 0.67, self.hist_w, self.hist_h]
-                # check if log scale is needed
-                w_max, w_min = max(weights[k]), min(weights[k])
-                if w_max/w_min > 100.:
-                    w = np.log(weights[k])
-                else:
-                    w = weights[k]
-                h_ax = self.fig.add_axes([left, bottom, width, height])
-                h_ax.hist(w, bins = self.num_bins, label = ens_labels[k])
+                h_ax = plt.subplot2grid((self.size_factor*l, self.size_factor*l), (self.size_factor*k, self.size_factor*l-2), rowspan = l, colspan = l)
+                h_ax.hist(log_weights[k] if log_weight else weights[k], bins = self.num_bins, label = ens_labels[k])
+                h_ax.yaxis.tick_right()
                 h_ax.legend()
         # plot extra data if needed
         for k, ed in enumerate(extra_data):
@@ -193,7 +190,6 @@ class EnsemblePlotter:
         # save and clear figure for reuse
         ax.legend()
         plt.savefig(file_path)
-        self.fig.clf()
 
 
 

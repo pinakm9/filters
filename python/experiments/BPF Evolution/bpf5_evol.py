@@ -19,16 +19,19 @@ import config as cf
 ev_time = int(sys.argv[1])
 model, a, b, x0 = model5.model(size = ev_time)
 particle_count = 100
+resampling_threshold = 0.1
 
 # set up configuration
-config = {'Henon a': a, 'Henon b': b, 'Particle count': particle_count, 'Evolution time': ev_time, 'Model': 'model5', 'Starting point': x0}
-cc = cf.ConfigCollector(expr_name = 'EnKF Ensemble Evolution', folder = script_dir)
+config = {'Henon a': a, 'Henon b': b, 'Particle count': particle_count, 'Resampling threshold': resampling_threshold,\
+          'Evolution time': ev_time, 'Model': 'model5', 'Starting point': x0}
+cc = cf.ConfigCollector(expr_name = 'Evolution', folder = script_dir)
 cc.add_params(config)
 cc.write()
+print(cc.res_path)
 
 # assimilation using a bootstrap particle filter
 hidden_path = model5.gen_path(length = ev_time)
 observed_path = model.observation.generate_path(hidden_path)
-enkf = fl.EnsembleKF(model, ensemble_size = particle_count, record_path = cc.res_path + '/enkf_assimilation.h5')
-enkf.update(observed_path)
-enkf.plot_ensembles(hidden_path, obs_inv = True)
+bpf = fl.ParticleFilter(model, particle_count = particle_count, record_path = cc.res_path + '/bpf_assimilation.h5')
+bpf.update(observed_path, threshold_factor = resampling_threshold, method = 'mean')
+bpf.plot_ensembles(hidden_path, obs_inv = True, pt_size = 50)

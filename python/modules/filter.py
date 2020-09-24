@@ -309,9 +309,10 @@ class ParticleFilter(Filter):
                            show = show, file_path = file_path, title = title)
 
     @ut.timer
-    def plot_ensembles(self, hidden_path, hidden_color = 'red', obs_inv = None, obs_inv_color = 'black',\
+    def plot_ensembles(self, hidden_path, hidden_color = 'red', prior_mean_color = 'purple', posterior_mean_color = 'maroon',\
+                       obs_inv = None, obs_inv_color = 'black',\
                        fig_size = (10, 10), pt_size = 1, num_bins = 30, size_factor = 5,\
-                       dpi = 300, ens_colors = ['orange', 'green'], alpha = 0.5):
+                       dpi = 300, ens_colors = ['orange', 'green'], alpha = 0.5, pdf_resolution = 300):
         """
         Description:
             Plots prior and posterior on a single page in a pdf
@@ -324,11 +325,12 @@ class ParticleFilter(Filter):
             file_path = os.path.dirname(self.record_path) + '/pf_ensembles_{}.png'.format(t)
             particles = getattr(hdf5.root.particles, 'time_' + str(t)).read().tolist()
             weights_posterior = np.array(getattr(hdf5.root.weights, 'time_' + str(t)).read().tolist()).reshape(self.particle_count,)
-            extra_data = [hidden_path[t]]
-            extra_plt_fns = ['scatter']
-            extra_styles = [{'marker': '$T$'}]
-            extra_labels = ['true state']
-            extra_colors = [hidden_color]
+            extra_data = [hidden_path[t], np.average(particles, weights = weights_prior, axis = 0),\
+                          np.average(particles, weights = weights_posterior, axis = 0)]
+            extra_plt_fns = ['scatter', 'scatter', 'scatter']
+            extra_styles = [{'marker': '$T$', 's': pt_size}, {'marker': '$\mu$', 's': pt_size}, {'marker': '$M$', 's': pt_size}]
+            extra_labels = ['true state', 'prior mean', 'posterior mean']
+            extra_colors = [hidden_color, prior_mean_color, posterior_mean_color]
             if obs_inv is not None:
                 if isinstance(obs_inv, np.ndarray):
                     obs_i = obs_inv[t]
@@ -336,15 +338,17 @@ class ParticleFilter(Filter):
                     obs_i = np.linalg.solve(self.model.observation.func(t, np.eye(self.dimension), np.zeros(self.dimension)), observation)
                 extra_data.append(obs_i)
                 extra_plt_fns.append('scatter')
-                extra_styles.append({'marker': '$O$'})
+                extra_styles.append({'marker': '$O$', 's': pt_size})
                 extra_labels.append('inverse of observation')
                 extra_colors.append(obs_inv_color)
             ep.plot_weighted_ensembles_2D(ensembles = [particles, particles], weights = [weights_prior, weights_posterior],\
                                           ens_labels = ['prior', 'posterior'], colors = ens_colors, file_path = file_path,\
-                                          alpha = alpha, weight_histogram = True, log_weight = True, extra_data = extra_data,\
+                                          alpha = alpha, log_size = True, weight_histogram = True, log_weight = True, extra_data = extra_data,\
                                           extra_plt_fns = extra_plt_fns, extra_styles = extra_styles,\
                                           extra_labels = extra_labels, extra_colors = extra_colors)
             weights_prior = copy.deepcopy(weights_posterior)
+        ep.stich(folder = os.path.dirname(self.record_path), img_prefix = 'pf_ensembles', pdf_name = 'pf_evolution.pdf', clean_up = True,\
+                 resolution = pdf_resolution)
 
 
 class AttractorPF(ParticleFilter):
@@ -809,7 +813,7 @@ class EnsembleKF(KalmanFilter):
             self.D[:, i] = observation + self.model.observation.noise_sim.algorithm()
 
         # compute Kalman gain
-        mean = np.average(self.ensemble, weights = [1.0/self.ensemble_size]*self.ensemble_size, axis = 1)
+        mean = np.average(self.ensemble, axis = 1)
         A = self.ensemble - np.dot(mean.reshape(-1, 1), np.ones((1, self.ensemble_size)))
         C = np.dot(A, A.T)/(self.ensemble_size - 1.0)
         H_x = self.jac_o_x(self.current_time, mean)
@@ -838,9 +842,10 @@ class EnsembleKF(KalmanFilter):
             hdf5.close()
 
     @ut.timer
-    def plot_ensembles(self, hidden_path, hidden_color = 'red', obs_inv = None, obs_inv_color = 'black',\
+    def plot_ensembles(self, hidden_path, hidden_color = 'red', prior_mean_color = 'purple', posterior_mean_color = 'maroon',\
+                       obs_inv = None, obs_inv_color = 'black',\
                        fig_size = (10, 10), pt_size = 1, num_bins = 30, size_factor = 5,\
-                       dpi = 300, ens_colors = ['orange', 'green'], alpha = 0.5):
+                       dpi = 300, ens_colors = ['orange', 'green'], alpha = 0.5, pdf_resolution = 300):
         """
         Description:
             Plots prior and posterior on a single page in a pdf
@@ -853,11 +858,11 @@ class EnsembleKF(KalmanFilter):
             ens_pr = getattr(hdf5.root.prior_ensemble, 'time_' + str(t)).read().tolist()
             ens_po = getattr(hdf5.root.posterior_ensemble, 'time_' + str(t)).read().tolist()
             file_path = os.path.dirname(self.record_path) + '/enkf_ensembles_{}.png'.format(t)
-            extra_data = [hidden_path[t]]
-            extra_plt_fns = ['scatter']
-            extra_styles = [{'marker': '$T$'}]
-            extra_labels = ['true state']
-            extra_colors = [hidden_color]
+            extra_data = [hidden_path[t], np.average(ens_pr, axis = 0), np.average(ens_po, axis = 0)]
+            extra_plt_fns = ['scatter', 'scatter', 'scatter']
+            extra_styles = [{'marker': '$T$', 's': pt_size}, {'marker': '$\mu$', 's': pt_size}, {'marker': '$M$', 's': pt_size}]
+            extra_labels = ['true state', 'prior mean', 'posterior mean']
+            extra_colors = [hidden_color, prior_mean_color, posterior_mean_color]
 
             if obs_inv is not None:
                 if isinstance(obs_inv, np.ndarray):
@@ -866,13 +871,16 @@ class EnsembleKF(KalmanFilter):
                     obs_i = np.linalg.solve(self.model.observation.func(t, np.eye(self.dimension), np.zeros(self.dimension)), observation)
                 extra_data.append(obs_i)
                 extra_plt_fns.append('scatter')
-                extra_styles.append({'marker': '$O$'})
+                extra_styles.append({'marker': '$O$', 's': pt_size})
                 extra_labels.append('inverse of observation')
                 extra_colors.append(obs_inv_color)
             ep.plot_weighted_ensembles_2D(ensembles = [ens_pr, ens_po], weights = [w, w], ens_labels = ['prior', 'posterior'],\
-                                          colors = ens_colors, file_path = file_path, alpha = alpha, weight_histogram = False, log_weight = False,\
-                                          extra_data = extra_data, extra_plt_fns = extra_plt_fns, extra_styles = extra_styles,
-                                          extra_labels = extra_labels, extra_colors = extra_colors)
+                                          colors = ens_colors, file_path = file_path, alpha = alpha, log_size = False,\
+                                          weight_histogram = False, log_weight = False, extra_data = extra_data,\
+                                          extra_plt_fns = extra_plt_fns, extra_styles = extra_styles, extra_labels = extra_labels,\
+                                          extra_colors = extra_colors)
+        ep.stich(folder = os.path.dirname(self.record_path), img_prefix = 'enkf_ensembles', pdf_name = 'enkf_evolution.pdf', clean_up = True,\
+                 resolution = pdf_resolution)
 
 
 

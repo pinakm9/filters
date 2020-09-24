@@ -3,7 +3,8 @@ import utility as ut
 import  matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 from PIL import Image
-
+import re
+import os
 
 class SignalPlotter(object):
     """
@@ -145,7 +146,7 @@ class EnsemblePlotter:
         self.fig = plt.figure(figsize = self.fig_size, dpi = dpi)
 
     @ut.timer
-    def plot_weighted_ensembles_2D(self, ensembles, weights, ens_labels, colors, file_path, alpha = 0.5, weight_histogram = True,\
+    def plot_weighted_ensembles_2D(self, ensembles, weights, ens_labels, colors, file_path, alpha = 0.5, log_size = False, weight_histogram = True,\
                                    log_weight = False, extra_data = [], extra_plt_fns = [], extra_styles = [], extra_labels = [], extra_colors = []):
         """
         Description:
@@ -161,17 +162,26 @@ class EnsemblePlotter:
         if len(np.array(ensembles).shape) < 3:
             ensembles = [ensembles]
             weights = [weights]
-        log_weights = np.log(weights)
+        # normalize weights
         l = len(ensembles)
+        for k in range(l):
+            weights[k] = np.array(weights[k])
+            weights[k] /= weights[k].sum()
+        log_weights = np.log(weights)
+        log_weights_max = np.amax(log_weights)
+        weights_max = np.amax(weights)
         self.fig.clf()
         plt.figure(self.fig.number)
         ax = plt.subplot2grid((self.size_factor*l, self.size_factor*l), (0, 0), rowspan = self.size_factor*l, colspan = (self.size_factor - 1)*l)
         # plot ensembles
         for k, ensemble in enumerate(ensembles):
             # plot weighted points
-            log_weights_max = np.amax(log_weights[k])
             for i, pt in enumerate(ensemble):
-                ax.scatter(pt[0], pt[1], s = self.pt_size * (log_weights_max/log_weights[k][i]), color = colors[k], label = ens_labels[k] if i == 0 else None)
+                if log_size:
+                    sz = self.pt_size * (log_weights_max / log_weights[k][i])
+                else:
+                    sz = self.pt_size * (weights[k][i] / weights_max)
+                ax.scatter(pt[0], pt[1], s = sz, color = colors[k], label = ens_labels[k] if i == 0 else None, alpha = alpha)
             # plot weight histogram if needed
             if weight_histogram:
                 h_ax = plt.subplot2grid((self.size_factor*l, self.size_factor*l), (self.size_factor*k, self.size_factor*l-2), rowspan = l, colspan = l)
@@ -190,6 +200,25 @@ class EnsemblePlotter:
         # save and clear figure for reuse
         ax.legend()
         plt.savefig(file_path)
+
+    @ut.timer
+    def stich(self, folder, img_prefix, pdf_name, clean_up = True, resolution = 300):
+        pages = []
+        imgs = []
+        if folder.endswith('/'):
+            folder = folder[:-1]
+        for img in os.listdir(folder):
+            if img.startswith(img_prefix):
+                pages.append(int(re.findall(r'[0-9]+', img)[-1]))
+                im_path = folder + '/' + img
+                im = Image.open(im_path)
+                rgb_im = Image.new('RGB', im.size, (255, 255, 255))  # white background
+                rgb_im.paste(im, mask=im.split()[3])
+                imgs.append(rgb_im)
+                if clean_up:
+                    os.remove(im_path)
+        imgs = [imgs[i] for i in np.array(pages).argsort()]
+        imgs[0].save(folder + '/' + pdf_name, "PDF", resolution = resolution, save_all = True, append_images = imgs[1:])
 
 
 
@@ -291,6 +320,7 @@ def im2pdf(im_folder, im_prefix, num_im, im_format, pdf_name):
     Args:
         im_folder: folder that contains the images
         im_prefix: the prefix that the image names start with
+        im_format: image file extension
         num_im: number of images to join
         pdf_name: filename(path) for the pdf to be created
     """

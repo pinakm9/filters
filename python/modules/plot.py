@@ -184,8 +184,13 @@ class EnsemblePlotter:
                 ax.scatter(pt[0], pt[1], s = sz, color = colors[k], label = ens_labels[k] if i == 0 else None, alpha = alpha)
             # plot weight histogram if needed
             if weight_histogram:
+                if log_weight:
+                    w = log_weights[k]
+                else:
+                    w = weights[k]
+                w = w[w > -1e300]
                 h_ax = plt.subplot2grid((self.size_factor*l, self.size_factor*l), (self.size_factor*k, self.size_factor*l-2), rowspan = l, colspan = l)
-                h_ax.hist(log_weights[k] if log_weight else weights[k], bins = self.num_bins, label = ens_labels[k])
+                h_ax.hist(w, bins = self.num_bins, label = ens_labels[k])
                 h_ax.yaxis.tick_right()
                 h_ax.legend()
         # plot extra data if needed

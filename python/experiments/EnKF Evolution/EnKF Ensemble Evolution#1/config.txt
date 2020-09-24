@@ -1,0 +1,6 @@
+Evolution time: 50
+Henon a: 1.4
+Henon b: 0.3
+Model: model5
+Particle count: 100
+Starting point: [0.67451 0.11016]

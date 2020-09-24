@@ -144,7 +144,7 @@ class ParticleFilter(Filter):
                 obs.flush()
                 hdf5.close()
         else:
-            self.record = False
+            self.recording = False
 
 
     def one_step_update(self, observation, particles = None):
@@ -368,9 +368,9 @@ class AttractorPF(ParticleFilter):
     Methods(modified):
         resample: default method set to 'attractor'
     """
-    def __init__(self, model, particle_count, attractor_sampler, save_trajectories = False):
+    def __init__(self, model, particle_count, attractor_sampler, record_path = None):
         self.sampler = attractor_sampler
-        super().__init__(model=model, particle_count=particle_count, save_trajectories=save_trajectories)
+        super().__init__(model=model, particle_count=particle_count, record_path=record_path)
 
     def attractor_resample(self, **params):
         """
@@ -476,9 +476,9 @@ class GlobalSamplingUPF(ParticleFilter):
         ParticleFilter
     Attributes (extra):
     """
-    def __init__(self, model, particle_count, alpha = 0.1, beta = 2.0, kappa = 0.0, save_trajectories = False):
+    def __init__(self, model, particle_count, alpha = 0.1, beta = 2.0, kappa = 0.0, record_path = None):
         # Construct necessary attributes from parent class
-        super().__init__(model, particle_count, save_trajectories)
+        super().__init__(model, particle_count, record_path)
 
         # store process and measurement noises
         self.process_noise_cov = self.model.hidden_state.sigma
@@ -657,8 +657,8 @@ class ImplicitPF(ParticleFilter):
         argmin_F: function to compute argmin of F when k(time), x_prev, observation are fixed
         grad_F: function to compute gradient of F when k(time), x_prev, observation are fixed
     """
-    def __init__(self, model, particle_count, F, argmin_F, grad_F, save_trajectories = False):
-        super().__init__(model = model, particle_count = particle_count, save_trajectories = save_trajectories)
+    def __init__(self, model, particle_count, F, argmin_F, grad_F, record_path = None):
+        super().__init__(model = model, particle_count = particle_count, record_path = record_path)
         #self.grad = grad # gradient of F, it's a function of form f(k, x, x_prev, observation)
         # define F = negative log of product of conditional pdfs
         self.F  = F
@@ -777,11 +777,14 @@ class EnsembleKF(KalmanFilter):
         ensemble: matrix containing the ensemble members in the columns
         D: generated data matrix
     """
-    def __init__(self, model, ensemble_size, record_path = None, jac_h_x = None, jac_h_n = None, jac_o_x = None, jac_o_n = None):
+    def __init__(self, model, ensemble_size, record_path = None, ensemble = None, jac_h_x = None, jac_h_n = None, jac_o_x = None, jac_o_n = None):
         super().__init__(model = model, mean0 = None, cov0 = None, jac_h_x = jac_h_x, jac_h_n = jac_h_n, jac_o_x = jac_o_x, jac_o_n = jac_o_n)
         self.ensemble_size = ensemble_size
         #self.H = self.model.observation.func(self.current_time, np.identity(self.model.hidden_state.dimension), self.zero_o)
-        self.ensemble = np.zeros((self.model.hidden_state.dimension, self.ensemble_size))
+        if ensemble is None:
+            self.ensemble = [] #np.zeros((self.model.hidden_state.dimension, self.ensemble_size))
+        else:
+            self.ensemble = ensemble
         self.D = np.zeros((self.model.observation.dimension, self.ensemble_size))
 
         # set up recording
@@ -801,10 +804,12 @@ class EnsembleKF(KalmanFilter):
                 hdf5.create_table(hdf5.root, 'observation', observation_description)
                 hdf5.close()
         else:
-            self.record = False
+            self.recording = False
 
     def one_step_update(self, observation):
         # create data matrix and predict new ensemble
+        if self.current_time == 0 and len(self.ensemble) != self.ensemble_size:
+            self.ensemble = np.zeros((self.model.hidden_state.dimension, self.ensemble_size))
         for i in range(self.ensemble_size):
             if self.current_time > 0:
                 self.ensemble[:, i] = self.model.hidden_state.sims[self.current_time].algorithm(self.current_time, self.ensemble[:, i])#func(self.current_time, self.ensemble[:, i], self.zero_h)
@@ -892,8 +897,8 @@ class QuadraticImplicitPF(ParticleFilter):
     Parent class:
         ParticleFilter
     """
-    def __init__(self, model, particle_count, grad, hessian, cholesky_factor_invT, save_trajectories = False):
-        super().__init__(model = model, particle_count = particle_count, save_trajectories = save_trajectories)
+    def __init__(self, model, particle_count, grad, hessian, cholesky_factor_invT, record_path = None):
+        super().__init__(model = model, particle_count = particle_count, record_path = record_path)
         self.grad = grad # gradient of F_k, it's a function of form f(x, y, x_0)
         self.hessian = hessian # hessian of F_k, it's a function of form f(x, y, x_0)
         self.cholesky_factor_invT = cholesky_factor_invT # inverse transpose of Cholesky factor of H, it's a function of form f(x, y, x_0)

@@ -1,0 +1,7 @@
+Evolution time: 30
+Henon a: 1.4
+Henon b: 0.3
+Model: model7
+Particle count: 100
+Resampling threshold: 0.1
+Starting point: [0.44142 0.21582]

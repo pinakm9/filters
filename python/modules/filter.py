@@ -311,14 +311,14 @@ class ParticleFilter(Filter):
     @ut.timer
     def plot_ensembles(self, hidden_path, hidden_color = 'red', prior_mean_color = 'purple', posterior_mean_color = 'maroon',\
                        obs_inv = None, obs_inv_color = 'black',\
-                       fig_size = (10, 10), pt_size = 1, num_bins = 30, size_factor = 5,\
+                       fig_size = (10, 10), pt_size = 1, size_factor = 5,\
                        dpi = 300, ens_colors = ['orange', 'green'], alpha = 0.5, pdf_resolution = 300):
         """
         Description:
             Plots prior and posterior on a single page in a pdf
         """
         hdf5 = tables.open_file(self.record_path, 'r')
-        ep = plot.EnsemblePlotter(fig_size = fig_size, pt_size = pt_size, num_bins = num_bins, size_factor = size_factor, dpi = dpi)
+        ep = plot.EnsemblePlotter(fig_size = fig_size, pt_size = pt_size, size_factor = size_factor, dpi = dpi)
         observations = hdf5.root.observation.read().tolist()
         weights_prior = np.ones(self.particle_count)/self.particle_count
         for t, observation in enumerate(observations):
@@ -463,6 +463,7 @@ class AttractorPF(ParticleFilter):
             self.resample(threshold_factor = threshold_factor, method = resampling_method, **{**params, **{'observation': observation}})
             if method is not None:
                 self.compute_trajectory(method = method)
+            self.record(observation)
             self.current_time += 1
         return self.weights
 
@@ -849,14 +850,14 @@ class EnsembleKF(KalmanFilter):
     @ut.timer
     def plot_ensembles(self, hidden_path, hidden_color = 'red', prior_mean_color = 'purple', posterior_mean_color = 'maroon',\
                        obs_inv = None, obs_inv_color = 'black',\
-                       fig_size = (10, 10), pt_size = 1, num_bins = 30, size_factor = 5,\
+                       fig_size = (10, 10), pt_size = 1, size_factor = 5,\
                        dpi = 300, ens_colors = ['orange', 'green'], alpha = 0.5, pdf_resolution = 300):
         """
         Description:
             Plots prior and posterior on a single page in a pdf
         """
         hdf5 = tables.open_file(self.record_path, 'r')
-        ep = plot.EnsemblePlotter(fig_size = fig_size, pt_size = pt_size, num_bins = num_bins, size_factor = size_factor, dpi = dpi)
+        ep = plot.EnsemblePlotter(fig_size = fig_size, pt_size = pt_size, size_factor = size_factor, dpi = dpi)
         w = np.ones(self.ensemble_size)
         observations = hdf5.root.observation.read().tolist()
         for t, observation in enumerate(observations):

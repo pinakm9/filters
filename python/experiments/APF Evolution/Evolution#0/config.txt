@@ -1,0 +1,9 @@
+Attractor resampling scheme: 0
+Database Id: 14_3_medium
+Evolution time: 50
+Henon a: 1.4
+Henon b: 0.3
+Model: model5
+Particle count: 100
+Resampling threshold: 0.1
+Starting point: [0.33582 0.16823]

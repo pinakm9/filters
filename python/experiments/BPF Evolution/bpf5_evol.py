@@ -27,7 +27,6 @@ config = {'Henon a': a, 'Henon b': b, 'Particle count': particle_count, 'Resampl
 cc = cf.ConfigCollector(expr_name = 'Evolution', folder = script_dir)
 cc.add_params(config)
 cc.write()
-print(cc.res_path)
 
 # assimilation using a bootstrap particle filter
 hidden_path = model5.gen_path(length = ev_time)

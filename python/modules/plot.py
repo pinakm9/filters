@@ -136,10 +136,9 @@ class EnsemblePlotter:
     Description:
         Plots evolution of ensembles
     """
-    def __init__(self, fig_size = (10, 10), pt_size = 1, num_bins = 30, size_factor = 5, dpi = 300):
+    def __init__(self, fig_size = (10, 10), pt_size = 1, size_factor = 5, dpi = 300):
         self.fig_size = fig_size
         self.pt_size = pt_size
-        self.num_bins = num_bins
         self.size_factor = size_factor
 
         # generate figure for the plot
@@ -190,7 +189,7 @@ class EnsemblePlotter:
                     w = weights[k]
                 w = w[w > -1e300]
                 h_ax = plt.subplot2grid((self.size_factor*l, self.size_factor*l), (self.size_factor*k, self.size_factor*l-2), rowspan = l, colspan = l)
-                h_ax.hist(w, bins = self.num_bins, label = ens_labels[k])
+                h_ax.hist(w, label = ens_labels[k])
                 h_ax.yaxis.tick_right()
                 h_ax.legend()
         # plot extra data if needed

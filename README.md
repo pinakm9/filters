@@ -1,2 +1,2 @@
 # filters
-Implementation of some signal-processing filters
+Implementation of some filters

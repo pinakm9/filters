@@ -1,0 +1,3 @@
+Model: Lorenz63
+Particle count: 50
+Resampling threshold: 0.1

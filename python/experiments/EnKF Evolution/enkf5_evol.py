@@ -18,7 +18,7 @@ import config as cf
 # set parameters
 ev_time = int(sys.argv[1])
 model, a, b, x0 = model5.model(size = ev_time)
-particle_count = 100
+particle_count = 50
 
 # set up configuration
 config = {'Henon a': a, 'Henon b': b, 'Particle count': particle_count, 'Evolution time': ev_time, 'Model': 'model5', 'Starting point': x0}

@@ -30,7 +30,8 @@ cc.write()
 
 # assimilation using a bootstrap particle filter
 hidden_path = model5.gen_path(length = ev_time)
+print(hidden_path)
 observed_path = model.observation.generate_path(hidden_path)
 bpf = fl.ParticleFilter(model, particle_count = particle_count, record_path = cc.res_path + '/bpf_assimilation.h5')
 bpf.update(observed_path, threshold_factor = resampling_threshold, method = 'mean')
-bpf.plot_ensembles(hidden_path, obs_inv = True, pt_size = 80)
+bpf.plot_ensembles(db_path=str(script_path) + '/Evolution#8/bpf_assimilation.h5', hidden_path=hidden_path, obs_inv = True, pt_size = 80)

@@ -170,7 +170,8 @@ class ParticleFilter(Filter):
             #prob3 = self.importance_pdf(new_particles[i], self.particles[i])
             self.weights[i] *= prob2
         # normalize weights
-            self.weights /= self.weights.sum()
+        print(self.weights.sum(), self.current_time)
+        self.weights /= self.weights.sum()
 
 
     def systematic_resample(self):
@@ -823,8 +824,7 @@ class EnsembleKF(KalmanFilter):
         A = self.ensemble - np.dot(mean.reshape(-1, 1), np.ones((1, self.ensemble_size)))
         C = np.dot(A, A.T)/(self.ensemble_size - 1.0)
         H_x = self.jac_o_x(self.current_time, mean)
-        H_n = self.jac_o_n(self.current_time, mean)
-        S = np.linalg.multi_dot([H_x, C, H_x.T]) + np.linalg.multi_dot([H_n, self.measurement_noise_cov, H_n.T])#np.linalg.multi_dot([self.H, C, self.H.T]) + self.measurement_noise_cov
+        S = np.linalg.multi_dot([H_x, C, H_x.T]) + self.measurement_noise_cov
         K = np.linalg.multi_dot([C, H_x.T, np.linalg.inv(S)])
 
         # record prior ensemble
@@ -838,7 +838,7 @@ class EnsembleKF(KalmanFilter):
 
         # update ensemble
         self.ensemble += np.dot(K, self.D - np.dot(H_x, self.ensemble))
-        self.mean = np.average(self.ensemble, weights = [1.0/self.ensemble_size]*self.ensemble_size, axis = 1)
+        self.mean = np.average(self.ensemble, axis = 1)
 
         # record posterior ensemble
         if self.recording:
@@ -864,7 +864,9 @@ class EnsembleKF(KalmanFilter):
             ens_pr = getattr(hdf5.root.prior_ensemble, 'time_' + str(t)).read().tolist()
             ens_po = getattr(hdf5.root.posterior_ensemble, 'time_' + str(t)).read().tolist()
             file_path = os.path.dirname(self.record_path) + '/enkf_ensembles_{}.png'.format(t)
-            extra_data = [hidden_path[t], np.average(ens_pr, axis = 0), np.average(ens_po, axis = 0)]
+            prior_mean =  np.average(ens_pr, axis = 0)
+            posterior_mean =  np.average(ens_po, axis = 0)
+            extra_data = [hidden_path[t], prior_mean, posterior_mean]
             extra_plt_fns = ['scatter', 'scatter', 'scatter']
             extra_styles = [{'marker': '$T$', 's': pt_size}, {'marker': '$\mu$', 's': pt_size}, {'marker': '$M$', 's': pt_size}]
             extra_labels = ['true state', 'prior mean', 'posterior mean']
@@ -874,7 +876,8 @@ class EnsembleKF(KalmanFilter):
                 if isinstance(obs_inv, np.ndarray):
                     obs_i = obs_inv[t]
                 else:
-                    obs_i = np.linalg.solve(self.model.observation.func(t, np.eye(self.dimension), np.zeros(self.dimension)), observation)
+                    H = self.jac_o_x(self.current_time, prior_mean)
+                    obs_i = np.linalg.solve(H, observation)#np.linalg.solve(self.model.observation.func(t, np.eye(self.dimension), np.zeros(self.dimension)), observation)
                 extra_data.append(obs_i)
                 extra_plt_fns.append('scatter')
                 extra_styles.append({'marker': '$O$', 's': pt_size})

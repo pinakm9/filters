@@ -18,11 +18,11 @@ import Lorenz63
 from ens_plot import plot_ensemble_evol
 
 # set model
-ev_time = 8
-model = Lorenz63.model(size=8)
+ev_time = 50
+model = Lorenz63.model(size=50)
 
 # set parameters
-particle_count = 50
+particle_count = 5000
 resampling_threshold = 0.1
 
 

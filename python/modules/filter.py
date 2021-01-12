@@ -8,6 +8,7 @@ import plot
 import os
 import tables
 import copy
+import math
 
 class Model():
     """
@@ -203,6 +204,36 @@ class ParticleFilter(Filter):
         return len(np.unique(indices))
 
 
+    def systematic_noisy_resample(self, noise=0.001):
+        # make N subdivisions, and choose positions with a consistent random offset
+        positions = (np.random.random() + np.arange(self.particle_count)) / self.particle_count
+
+        indices = np.zeros(self.particle_count, 'i')
+        cumulative_sum = np.cumsum(self.weights)
+        i, j = 0, 0
+        while i < self.particle_count:
+            if positions[i] < cumulative_sum[j]:
+                indices[i] = j
+                i += 1
+            else:
+                j += 1
+        indices = list(set(indices))
+        offsprings = [0] * len(indices)
+        weight_sum = sum([self.weights[i] for i in indices])
+        for k, i in enumerate(indices):
+            offsprings[k] = math.ceil(self.weights[i]/weight_sum*self.particle_count)
+        new_particles = np.zeros((sum(offsprings), self.dimension))
+        mean = np.zeros(self.dimension)
+        cov = noise * np.identity(self.dimension)
+        j = 0
+        for k, i in enumerate(indices):
+            new_particles[j] = self.particles[i]
+            new_particles[j+1: j+offsprings[k]]= self.particles[i] + np.random.multivariate_normal(mean, cov, size=offsprings[k] - 1)
+            j += offsprings[k]
+        self.particles = np.array([new_particles[i] for i in np.random.choice(sum(offsprings), self.particle_count, replace=False)])
+        self.weights = np.ones(self.particle_count)/self.particle_count
+        return len(indices)
+
     def resample(self, threshold_factor = 0.1, method = 'systematic', **params):
         """
         Description:
@@ -213,8 +244,7 @@ class ParticleFilter(Filter):
             bool, True if resampling occurred, False otherwise
         """
         # resample if effective particle count criterion is met
-        if 1.0/(self.weights**2).sum() < threshold_factor*self.particle_count:
-            indices = np.random.choice(self.particle_count, self.particle_count, p = self.weights)
+        if 1.0/((self.weights**2).sum()) < threshold_factor*self.particle_count:
             getattr(self, method + '_resample')(**params)
             self.resampling_tracker.append(True)
             return True # resampling occurred

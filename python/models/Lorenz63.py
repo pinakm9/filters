@@ -17,8 +17,8 @@ import plot as plot
 A 2D non-linear problem (Henon map)
 """
 # set parameters
-sigma, rho, beta = 10.0, 28.0, 2.6666666666666665#8.0/3,
-eps, delta = 0.0, 0.1
+sigma, rho, beta = 10.0, 28.0, 8.0/3,
+eps, nu, delta = 0.0, 3.0, 0.1
 mu, id, zero =  np.zeros(3), np.identity(3), np.zeros(3)
 x0 = [-13.793058609513304, -8.198083431274192, 39.06604861256139]
 
@@ -28,14 +28,14 @@ def lorenz63_f(t, state):
     return np.array([sigma*(y-x), x*(rho-z)-y, x*y-beta*z])
 
 def lorenz_63(x):
-    return scipy.integrate.solve_ivp(lorenz63_f, [0.0, 2], x, method='RK45', t_eval=[2]).y.T[0]
+    return scipy.integrate.solve_ivp(lorenz63_f, [0.0, 0.2], x, method='RK45', t_eval=[0.2]).y.T[0]
 
 """
 print(lorenz_63(x0))
 """
 
 # create a deterministic Markov chain
-prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(x0, 0.01*id))
+prior = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(x0, nu*id))
 process_noise = sm.Simulation(algorithm = lambda *args: np.random.multivariate_normal(mu, eps*id))
 func_h = lambda k, x, noise: lorenz_63(x) + noise
 conditional_pdf_h = lambda k, x, past: scipy.stats.multivariate_normal.pdf(x, mean = func_h(k, past, zero), cov = eps*id)
@@ -58,4 +58,4 @@ def gen_path(length):
 def model(size):
     mc = sm.DynamicModel(size = size, prior = prior, func = func_h, sigma = eps*id, noise_sim = process_noise, conditional_pdf = conditional_pdf_h)
     om = sm.MeasurementModel(size = size, func = func_o, sigma = delta*id, noise_sim = observation_noise, conditional_pdf = conditional_pdf_o)
-    return fl.Model(dynamic_model = mc, measurement_model = om)
+    return fl.Model(dynamic_model = mc, measurement_model = om), nu, delta

@@ -12,4 +12,4 @@ assml_file_1 = 'np_100_rn_005/bpf_assimilation.h5'
 assml_file_2 = 'np_200_rn_001/bpf_assimilation.h5'
 
 pf_comp = cd.PFComparison(assml_file_1, assml_file_2)
-pf_comp.compare(num_samples=5000, k=10)
+pf_comp.compare(num_samples=5000, k=100)

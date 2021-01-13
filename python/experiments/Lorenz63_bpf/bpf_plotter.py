@@ -182,5 +182,6 @@ def plot_ensemble_evol(db_path, hidden_path, time_factor=1,\
 									  extra_colors = extra_colors)
 		weights_prior = copy.deepcopy(weights_posterior)
 
-	ep.stich(folder = folder, img_prefix = 'ensembles', pdf_path= os.path.dirname(db_path) + '/bpf_evolution.pdf', clean_up = True,\
-			 resolution = pdf_resolution)
+	ep.stich(folder = folder, img_prefix = 'ensembles', pdf_path= os.path.dirname(db_path) + '/bpf_evolution.pdf',\
+	 		clean_up = True, resolution = pdf_resolution)
+	hdf5.close()

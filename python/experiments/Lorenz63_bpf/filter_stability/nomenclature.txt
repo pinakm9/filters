@@ -1,0 +1,6 @@
+np = number of particles
+rn = resampling noise covariance
+pc = prior covariance
+oc = observation covariance
+og = observation gap
+s = shift for the prior ensemble for inaccurate setup

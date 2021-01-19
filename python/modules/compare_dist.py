@@ -5,35 +5,90 @@ import tables
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn import linear_model
-
+import math
 
 class DistComparison:
     """
     Class for comparing distributions
     """
-    def __init__(self, ensemble_1, ensemble_2):
+    def __init__(self, ensemble_1, ensemble_2, weights_1=None, weights_2=None):
         self.ensemble_1 = ensemble_1
         self.ensemble_2 = ensemble_2
+        self.weights_1 = weights_1
+        self.weights_2 = weights_2
+        self.n = len(self.ensemble_1)
+        self.m = len(self.ensemble_2)
         self.dim = len(ensemble_1[0])
 
     @ut.timer
     def compute_KL(self, k):
-        n = len(self.ensemble_1)
-        m = len(self.ensemble_2)
-        # compute p_hat
         neigh = NearestNeighbors(n_neighbors=k + 1, n_jobs=-1)
         # train for getting nearest neighbour
         neigh.fit(self.ensemble_1)
         dist, _ = neigh.kneighbors(self.ensemble_1)
-        r_k = [dist[i][k] for i in range(n)]
+        r_k = [dist[i][k] for i in range(self.n)]
         #print(dist.shape)
         neigh = NearestNeighbors(n_neighbors=k, n_jobs=-1)
         # train for getting nearest neighbour
         neigh.fit(self.ensemble_2)
         dist, _ = neigh.kneighbors(self.ensemble_1)
-        s_k = [dist[i][k - 1] for i in range(n)]
+        s_k = [dist[i][k - 1] for i in range(self.n)]
         #print(dist.shape)
-        return sum([np.log(s_k[i]/r_k[i]) for i in range(n)]) * self.dim / n +  self.dim * np.log(m/(n-1))
+        return sum([np.log(s_k[i]/r_k[i]) for i in range(self.n)]) * self.dim / self.n +  self.dim * np.log(self.m/(self.n-1))
+
+    def systematic_noisy_resample(self, ensemble, weights, num_samples, noise_cov=0.01):
+        ensemble_size = len(ensemble)
+        # make N subdivisions, and choose positions with a consistent random offset
+        positions = (np.random.random() + np.arange(ensemble_size)) / ensemble_size
+        indices = np.zeros(ensemble_size, 'i')
+        cumulative_sum = np.cumsum(weights)
+        i, j = 0, 0
+        while i < ensemble_size:
+            if positions[i] < cumulative_sum[j]:
+                indices[i] = j
+                i += 1
+            else:
+                j += 1
+        indices = list(set(indices))
+        offsprings = [0] * len(indices)
+        weight_sum = sum([weights[i] for i in indices])
+        for k, i in enumerate(indices):
+            offsprings[k] = math.ceil(num_samples * weights[i] / weight_sum)
+        new_particles = np.zeros((sum(offsprings), self.dim))
+        mean = np.zeros(self.dim)
+        cov = noise_cov * np.identity(self.dim)
+        j = 0
+        for k, i in enumerate(indices):
+            new_particles[j] = ensemble[i]
+            new_particles[j+1: j+offsprings[k]]= ensemble[i] + np.random.multivariate_normal(mean, cov, size=offsprings[k] - 1)
+            j += offsprings[k]
+        return np.array([new_particles[i] for i in np.random.choice(sum(offsprings), num_samples, replace=False)])
+
+    def compute_KL_with_weights(self, num_samples=1000, k=100, noise_cov=0.001):
+        if self.weights_1 is None:
+            self.weights_1 = np.ones(self.n) / self.n
+        if self.weights_2 is None:
+            self.weights_2 = np.ones(self.m) / self.m
+        print('Resampling from first distribution ...')
+        ensemble_1 = self.systematic_noisy_resample(self.ensemble_1, self.weights_1, num_samples + 1, noise_cov)
+        print('Resampling from second distribution ...')
+        ensemble_2 = self.systematic_noisy_resample(self.ensemble_2, self.weights_2, num_samples, noise_cov)
+        print('Computing nearest neighbors ...')
+        neigh = NearestNeighbors(n_neighbors=k + 1, n_jobs=-1)
+        # train for getting nearest neighbour
+        neigh.fit(ensemble_1)
+        dist, _ = neigh.kneighbors(ensemble_1)
+        r_k = [dist[i][k] for i in range(num_samples + 1)]
+        #print(dist.shape)
+        neigh = NearestNeighbors(n_neighbors=k, n_jobs=-1)
+        # train for getting nearest neighbour
+        neigh.fit(ensemble_2)
+        dist, _ = neigh.kneighbors(ensemble_1)
+        s_k = [dist[i][k - 1] for i in range(num_samples + 1)]
+        kl = sum([np.log(s_k[i]/r_k[i]) for i in range(num_samples + 1)]) * self.dim / (num_samples + 1)
+        print('Estimated KL divergence = {}'.format(kl))
+        return kl
+
 
 class PFComparison:
     def __init__(self, assml_file_1, assnl_file_2):
@@ -41,7 +96,7 @@ class PFComparison:
         self.file_2 = assnl_file_2
 
     @ut.timer
-    def compare(self, num_samples, k, saveas=None):
+    def compare_with_kde(self, num_samples, k, bandwidth, saveas=None):
         hdf5_1 = tables.open_file(self.file_1, 'r')
         hdf5_2 = tables.open_file(self.file_2, 'r')
         iterations = len(hdf5_1.root.observation.read().tolist())
@@ -54,8 +109,8 @@ class PFComparison:
             # remove zero weights
             idx_1 = np.where(weights_1 > 1e-10)
             idx_2 = np.where(weights_2 > 1e-10)
-            kde_1 = KernelDensity(kernel='gaussian', bandwidth=0.5).fit(ensemble_1[idx_1], sample_weight=weights_1[idx_1])
-            kde_2 = KernelDensity(kernel='gaussian', bandwidth=0.5).fit(ensemble_2[idx_2], sample_weight=weights_2[idx_2])
+            kde_1 = KernelDensity(kernel='gaussian', bandwidth=bandwidth).fit(ensemble_1[idx_1], sample_weight=weights_1[idx_1])
+            kde_2 = KernelDensity(kernel='gaussian', bandwidth=bandwidth).fit(ensemble_2[idx_2], sample_weight=weights_2[idx_2])
             ensemble_1 = kde_1.sample(num_samples + 1)
             ensemble_2 = kde_2.sample(num_samples)
             dist_comp = DistComparison(ensemble_1, ensemble_2)
@@ -83,6 +138,40 @@ class PFComparison:
             a, b = np.linalg.solve(A, [(x_*y_).sum(), y_.sum()])
             plt.plot(x_, a*x_ + b, '--r', color='blue', label='linear trend (computed from blue dots)')
         #"""
+        plt.plot(x, np.zeros(len(x)), color='green', label='x-axis')
+        plt.xlabel('assimilation step')
+        plt.ylabel('approximate KL divergence')
+        plt.title('{} vs {}'.format(self.file_1[:-3], self.file_2[:-3]))
+        plt.legend()
+        if saveas is None:
+            saveas = 'filter_comparison.png'
+        else:
+            saveas = saveas + '.png'
+        plt.savefig(saveas)
+
+    @ut.timer
+    def compare_with_resampling(self, num_samples, k, noise_cov=0.01, saveas=None):
+        hdf5_1 = tables.open_file(self.file_1, 'r')
+        hdf5_2 = tables.open_file(self.file_2, 'r')
+        iterations = len(hdf5_1.root.observation.read().tolist())
+        kl_dist = np.zeros(iterations, dtype=np.float32)
+        for itr in range(iterations):
+            ensemble_1 = np.array(getattr(hdf5_1.root.particles, 'time_' + str(itr)).read().tolist())
+            ensemble_2 = np.array(getattr(hdf5_2.root.particles, 'time_' + str(itr)).read().tolist())
+            weights_1 = np.array(getattr(hdf5_1.root.weights, 'time_' + str(itr)).read().tolist()).flatten()
+            weights_2 = np.array(getattr(hdf5_2.root.weights, 'time_' + str(itr)).read().tolist()).flatten()
+            dist_comp = DistComparison(ensemble_1, ensemble_2, weights_1, weights_2)
+            kl_dist[itr] = dist_comp.compute_KL_with_weights(num_samples, k, noise_cov)
+        hdf5_1.close()
+        hdf5_2.close()
+        pd.DataFrame(kl_dist).to_csv(saveas + '.csv' if saveas is not None else 'filter_comparison.csv', header=None, index=None)
+        plt.figure(figsize = (8, 8))
+        x = np.array(list(range(iterations)))
+        idx_1 = np.where(kl_dist >= 0.0)
+        idx_2 = np.where(kl_dist < 0.0)
+        x_, y_ = x[idx_1], kl_dist[idx_1]
+        plt.scatter(x_, y_, color='blue')
+        plt.scatter(x[idx_2], kl_dist[idx_2], color='red')
         plt.plot(x, np.zeros(len(x)), color='green', label='x-axis')
         plt.xlabel('assimilation step')
         plt.ylabel('approximate KL divergence')

@@ -1,0 +1,7 @@
+resampling covariance: 0.01
+number of points sampled from the distributions: 5001 and 5000 
+k: 100 
+kde bandwidth: 0.5 
+
+Note: the smoother you make the ensembles with either kde or resampling the more 
+pronounced the filter stability becomes 

@@ -31,7 +31,7 @@ np.random.seed(seed)
 for i, e in enumerate(experiments):
     print('commencing experiment #{} ...'.format(i))
     # set model
-    ev_time = 100
+    ev_time = 50
     prior_cov = e['pc']
     obs_cov = e['oc']
     shift = e['s']

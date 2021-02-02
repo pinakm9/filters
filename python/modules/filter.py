@@ -173,7 +173,7 @@ class ParticleFilter(Filter):
         # normalize weights
         print('step: {}, sum of weights: {}'.format(self.current_time, self.weights.sum()))
         self.weights /= self.weights.sum()
-        if np.isnan(self.weights.sum()):
+        if np.isnan(self.weights[0]) or np.isinf(self.weights[0]):
             self.status = 'faliure'
 
 
@@ -322,6 +322,8 @@ class ParticleFilter(Filter):
             if method is not None:
                 self.compute_trajectory(method = method)
             self.record(observation)
+            if hasattr(self, 'status') and self.status == 'faliure':
+                break
             self.current_time += 1
         if not hasattr(self, 'status'):
             self.status = 'success'

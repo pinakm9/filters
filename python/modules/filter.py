@@ -171,8 +171,10 @@ class ParticleFilter(Filter):
             #prob3 = self.importance_pdf(new_particles[i], self.particles[i])
             self.weights[i] *= prob2
         # normalize weights
-        print(self.weights.sum(), self.current_time)
+        print('step: {}, sum of weights: {}'.format(self.current_time, self.weights.sum()))
         self.weights /= self.weights.sum()
+        if np.isnan(self.weights.sum()):
+            self.status = 'faliure'
 
 
     def systematic_resample(self):
@@ -321,7 +323,9 @@ class ParticleFilter(Filter):
                 self.compute_trajectory(method = method)
             self.record(observation)
             self.current_time += 1
-        return self.weights
+        if not hasattr(self, 'status'):
+            self.status = 'success'
+        return self.status
 
     def plot_error(self, show = False, file_path = None, title = None, semilogy = False, resampling = True):
         signals = [self.abs_error]

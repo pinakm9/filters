@@ -22,6 +22,9 @@ class DistComparison:
 
     @ut.timer
     def compute_KL(self, k):
+        """
+        k: for nearest neighbor computation
+        """
         neigh = NearestNeighbors(n_neighbors=k + 1, n_jobs=-1)
         # train for getting nearest neighbour
         neigh.fit(self.ensemble_1)
@@ -37,11 +40,15 @@ class DistComparison:
         return sum([np.log(s_k[i]/r_k[i]) for i in range(self.n)]) * self.dim / self.n +  self.dim * np.log(self.m/(self.n-1))
 
     def systematic_noisy_resample(self, ensemble, weights, num_samples, noise_cov=0.01):
+        """
+        resamples new particles from a given ensemble
+        """
         ensemble_size = len(ensemble)
         # make N subdivisions, and choose positions with a consistent random offset
         positions = (np.random.random() + np.arange(ensemble_size)) / ensemble_size
         indices = np.zeros(ensemble_size, 'i')
         cumulative_sum = np.cumsum(weights)
+        # figure out significant particles
         i, j = 0, 0
         while i < ensemble_size:
             if positions[i] < cumulative_sum[j]:
@@ -50,6 +57,7 @@ class DistComparison:
             else:
                 j += 1
         indices = list(set(indices))
+        # figure out the number of offsprings for each particle
         offsprings = [0] * len(indices)
         weight_sum = sum([weights[i] for i in indices])
         for k, i in enumerate(indices):
@@ -57,6 +65,7 @@ class DistComparison:
         new_particles = np.zeros((sum(offsprings), self.dim))
         mean = np.zeros(self.dim)
         cov = noise_cov * np.identity(self.dim)
+        # resample
         j = 0
         for k, i in enumerate(indices):
             new_particles[j] = ensemble[i]
@@ -64,7 +73,7 @@ class DistComparison:
             j += offsprings[k]
         return np.array([new_particles[i] for i in np.random.choice(sum(offsprings), num_samples, replace=False)])
 
-    def compute_KL_with_weights(self, num_samples=1000, k=100, noise_cov=0.001):
+    def compute_KL_with_weights(self, num_samples=1000, k=100, noise_cov=0.01):
         if self.weights_1 is None:
             self.weights_1 = np.ones(self.n) / self.n
         if self.weights_2 is None:
@@ -182,3 +191,42 @@ class PFComparison:
         else:
             saveas = saveas + '.png'
         plt.savefig(saveas)
+
+
+class PFvsKF:
+    def __init__(self, pf_file, kf_file):
+        self.pf_file = pf_file
+        self.kf_file = kf_file
+
+    @ut.timer
+    def compare_with_resampling(self, num_samples, k, noise_cov=0.01, saveas=None):
+         hdf5_1 = tables.open_file(self.pf_file, 'r')
+         npy_2 = np.load(self.kf_file)
+         iterations = len(hdf5_1.root.observation.read().tolist())
+         kl_dist = np.zeros(iterations, dtype=np.float32)
+         for itr in range(iterations):
+             ensemble_1 = np.array(getattr(hdf5_1.root.particles, 'time_' + str(itr)).read().tolist())
+             ensemble_2 = npy_2[itr].T
+             weights_1 = np.array(getattr(hdf5_1.root.weights, 'time_' + str(itr)).read().tolist()).flatten()
+             dist_comp = DistComparison(ensemble_1, ensemble_2, weights_1)
+             kl_dist[itr] = dist_comp.compute_KL_with_weights(num_samples, k, noise_cov)
+         hdf5_1.close()
+         pd.DataFrame(kl_dist).to_csv(saveas + '.csv' if saveas is not None else 'filter_comparison.csv', header=None, index=None)
+         plt.figure(figsize = (8, 8))
+         x = np.array(list(range(iterations)))
+         idx_1 = np.where(kl_dist >= 0.0)
+         idx_2 = np.where(kl_dist < 0.0)
+         x_, y_ = x[idx_1], kl_dist[idx_1]
+         plt.scatter(x_, y_, color='blue')
+         plt.scatter(x[idx_2], kl_dist[idx_2], color='red')
+         plt.plot(x, np.zeros(len(x)), color='green', label='x-axis')
+         plt.xlabel('assimilation step')
+         plt.ylabel('approximate KL divergence')
+         plt.title('{} vs {}'.format(self.pf_file[:-3], self.kf_file[:-4]))
+         plt.legend()
+         if saveas is None:
+             saveas = 'filter_comparison.png'
+         else:
+             saveas = saveas + '.png'
+         plt.savefig(saveas)
+         del npy_2

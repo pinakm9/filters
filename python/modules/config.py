@@ -1,4 +1,5 @@
 import os
+import json
 
 class ConfigCollector:
 	"""
@@ -43,13 +44,17 @@ class ConfigCollector:
 		"""
 		self.config.update(params)
 
-	def write(self):
+	def write(self, mode='json'):
 		"""
 		Description:
 		    Creates a subfolder to store the results of an experiment and saves the configuration of the experiment in the folder
 		"""
 		# writes down the configuration of the experiment
 		config_path = os.path.join(self.folder, self.expr_name, '')
-		with open(config_path + 'config.txt', 'w') as f:
-			for k in sorted(self.config):
-				f.write('{}: {}\n'.format(k, self.config[k]))
+		if mode == 'txt':
+			with open(config_path + 'config.txt', 'w') as f:
+				for k in sorted(self.config):
+					f.write('{}: {}\n'.format(k, self.config[k]))
+		elif mode == 'json':
+			with open(config_path + 'config.json', 'w') as f:
+				json.dump(self.config, f)

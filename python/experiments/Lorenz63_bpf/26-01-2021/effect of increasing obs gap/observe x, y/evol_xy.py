@@ -19,7 +19,7 @@ from bpf_plotter import plot_ensemble_evol
 import os
 import pandas as pd
 # locate config files to create models
-config_folder = 'config_0.8'
+config_folder = 'config_0.4'
 config_files = os.listdir(config_folder)
 
 for file in config_files[3:]:
@@ -59,7 +59,7 @@ for file in config_files[3:]:
     bpf.update(observed_path, resampling_method = resampling_method, threshold_factor = resampling_threshold, method = 'mean', noise=noise)
 
     # document results
-    if particle_count < 1000:
+    if particle_count < 100000:
         plot_ensemble_evol(cc.res_path + '/assimilation.h5', hidden_path, time_factor=1, pt_size=80, obs_inv=True)
     else:
         bpf.plot_trajectories(hidden_path, coords_to_plot=[0, 1, 2], file_path=cc.res_path + '/trajectories.png', measurements=False)

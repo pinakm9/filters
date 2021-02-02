@@ -35,7 +35,8 @@ class EnsemblePlotter:
 	@ut.timer
 	def plot_weighted_ensembles_2D(self, ensembles, labels = None, weights = None, colors = None, file_path = 'ensemble_plot.png.',\
 								   alpha = 0.5, log_size = False, weight_histogram = True, log_weight = False,\
-								   extra_data = [], extra_plt_fns = [], extra_styles = [], extra_labels = [], extra_colors = []):
+								   extra_data = [], extra_plt_fns = [], extra_styles = [], extra_labels = [], extra_colors = [],\
+								   max_particles = 1000):
 		"""
 		Description:
 			Plots a 2D weighted ensemble
@@ -53,6 +54,7 @@ class EnsemblePlotter:
 			if weights is not None:
 				weights = [weights]
 		l = len(ensembles)
+		ensembles = np.array(ensembles)
 		# set up unsupplied arguments
 		if labels is None:
 			labels = ['ensemble_{}'.format(i) for i in range(l)]
@@ -64,8 +66,13 @@ class EnsemblePlotter:
 		for k in range(l):
 			weights[k] = np.array(weights[k])
 			weights[k] /= weights[k].sum()
-
 		
+		# sort particles according to weights
+		for k in range(l):
+			idx = np.argsort(weights[k])
+			weights[k] = weights[k][idx][::-1]
+			ensembles[k] = ensembles[k][idx][::-1]
+
 		log_weights = np.log(weights)
 		log_weights_max = np.amax(log_weights)
 		weights_max = np.amax(weights)
@@ -75,6 +82,8 @@ class EnsemblePlotter:
 		# plot ensembles
 		for k, ensemble in enumerate(ensembles):
 			sz = np.ones(len(ensemble))
+			if len(ensemble) > max_particles:
+				ensembles = ensemble[:max_particles]
 			# plot weighted points
 			for i, _ in enumerate(ensemble):
 				if log_size:

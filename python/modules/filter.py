@@ -128,11 +128,11 @@ class ParticleFilter(Filter):
             if not os.path.isfile(self.record_path):
                 self.particle_description = {}
                 for i in range(self.dimension):
-                    self.particle_description['x' + str(i)] = tables.Float64Col(pos = i)
+                    self.particle_description['x' + str(i)] = tables.Float32Col(pos = i)
                 observation_description = {}
                 for i in range(self.model.observation.dimension):
-                    observation_description['x' + str(i)] = tables.Float64Col(pos = i)
-                self.weight_description = {'w': tables.Float64Col(pos = 0)}
+                    observation_description['x' + str(i)] = tables.Float32Col(pos = i)
+                self.weight_description = {'w': tables.Float32Col(pos = 0)}
                 self.bool_description = {'bool': tables.BoolCol(pos = 0)}
                 hdf5 = tables.open_file(self.record_path, 'w')
                 hdf5.create_group('/', 'particles')
@@ -297,7 +297,8 @@ class ParticleFilter(Filter):
             particles.flush()
             hdf5.root.resampling.append(np.array([self.resampling_tracker[self.current_time]], dtype=np.bool_))
             hdf5.root.resampling.flush()
-            hdf5.root.observation.append(np.array(observation, dtype = np.float64))
+            #print(obs, obs.dtype, self.model.observation.dimension)
+            hdf5.root.observation.append(np.array(observation, dtype = np.float32))
             hdf5.root.observation.flush()
             hdf5.close()
 
@@ -832,13 +833,13 @@ class EnsembleKF(KalmanFilter):
             if not os.path.isfile(self.record_path):
                 self.particle_description = {}
                 for i in range(self.dimension):
-                    self.particle_description['x' + str(i)] = tables.Float64Col(pos = i)
+                    self.particle_description['x' + str(i)] = tables.Float32Col(pos = i)
                 hdf5 = tables.open_file(self.record_path, 'w')
                 hdf5.create_group('/', 'prior_ensemble')
                 hdf5.create_group('/', 'posterior_ensemble')
                 observation_description = {}
                 for i in range(model.observation.dimension):
-                    observation_description['x' + str(i)] = tables.Float64Col(pos = i)
+                    observation_description['x' + str(i)] = tables.Float32Col(pos = i)
                 hdf5.create_table(hdf5.root, 'observation', observation_description)
                 hdf5.close()
         else:
@@ -869,7 +870,7 @@ class EnsembleKF(KalmanFilter):
             ensemble = hdf5.create_table(hdf5.root.prior_ensemble, 'time_' + str(self.current_time), self.particle_description)
             ensemble.append(self.ensemble.T)
             ensemble.flush()
-            hdf5.root.observation.append(np.array(observation, dtype = np.float64))
+            hdf5.root.observation.append(np.array(observation, dtype = np.float32))
             hdf5.root.observation.flush()
 
         # update ensemble

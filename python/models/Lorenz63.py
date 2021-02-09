@@ -51,7 +51,7 @@ def get_model(size, prior_cov=1.0, obs_cov=0.1, shift=0.0, obs_gap=0.2):
         x = x0
         for i in range(length):
             path[i] = x
-            x = func_h(i, x, zero3)
+            x = func_h(i, x, zero)
         return path
 
     mc = sm.DynamicModel(size = size, prior = prior, func = func_h, sigma = eps*id, noise_sim = process_noise, conditional_pdf = conditional_pdf_h)

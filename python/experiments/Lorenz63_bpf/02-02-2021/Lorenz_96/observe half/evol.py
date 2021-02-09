@@ -22,7 +22,7 @@ import pandas as pd
 config_folder = 'config'
 config_files = os.listdir(config_folder)
 
-for file in config_files:
+for file in config_files[1:2]:
     print('loading configuration from {}'.format(config_folder + '/' + file))
     with open(config_folder + '/' + file) as f:
         config = json.load(f)
@@ -63,12 +63,12 @@ for file in config_files:
     bpf.update(observed_path, resampling_method = resampling_method, threshold_factor = resampling_threshold, method = 'mean', noise=noise)
 
     # document results
-    if particle_count < 100000:
+    if False:
         plot_ensemble_evol(cc.res_path + '/assimilation.h5', hidden_path, time_factor=1, pt_size=80, obs_inv=True)
-    else:
-        bpf.plot_trajectories(hidden_path, coords_to_plot=[0, 1, 2], file_path=cc.res_path + '/trajectories.png', measurements=False)
-        bpf.compute_error(hidden_path)
-        bpf.plot_error(file_path=cc.res_path + '/l2_error.png')
+ 
+    bpf.plot_trajectories(hidden_path, coords_to_plot=[0, 1, 2], file_path=cc.res_path + '/trajectories.png', measurements=False)
+    bpf.compute_error(hidden_path)
+    bpf.plot_error(file_path=cc.res_path + '/l2_error.png')
     config['Status'] = bpf.status
     cc.add_params(config)
     cc.write(mode='json')

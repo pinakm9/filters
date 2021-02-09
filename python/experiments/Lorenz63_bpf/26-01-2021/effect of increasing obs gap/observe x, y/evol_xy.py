@@ -19,10 +19,10 @@ from bpf_plotter import plot_ensemble_evol
 import os
 import pandas as pd
 # locate config files to create models
-config_folder = 'config_0.4'
+config_folder = 'config_0.8'
 config_files = os.listdir(config_folder)
 
-for file in config_files[3:]:
+for file in config_files[:1]:
     print('loading configuration from {}'.format(config_folder + '/' + file))
     with open(config_folder + '/' + file) as f:
         config = json.load(f)

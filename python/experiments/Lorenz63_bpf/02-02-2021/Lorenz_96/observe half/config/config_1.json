@@ -6,7 +6,7 @@
 "Numpy seed": 2021,
 "Observation covariance": 0.1,
 "Observation gap": 0.2,
-"Particle count": 10000,
+"Particle count": 2000,
 "Prior covariance": 1.0,
 "Resampling covariance": 0.05,
 "Resampling method": "systematic_noisy",

@@ -66,7 +66,7 @@ for file in config_files[1:2]:
     if False:
         plot_ensemble_evol(cc.res_path + '/assimilation.h5', hidden_path, time_factor=1, pt_size=80, obs_inv=True)
  
-    bpf.plot_trajectories(hidden_path, coords_to_plot=[0, 1, 2], file_path=cc.res_path + '/trajectories.png', measurements=False)
+    bpf.plot_trajectories(hidden_path, coords_to_plot=[25, 30, 35, 39], file_path=cc.res_path + '/trajectories.png', measurements=False)
     bpf.compute_error(hidden_path)
     bpf.plot_error(file_path=cc.res_path + '/l2_error.png')
     config['Status'] = bpf.status

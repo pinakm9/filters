@@ -13,7 +13,7 @@ sys.path.insert(0, module_dir + '/models')
 import genetic_pf as gpf
 import config as cf
 import numpy as np
-import Lorenz63_xy
+import Lorenz63_x
 import json
 from bpf_plotter import plot_ensemble_evol
 import os
@@ -35,7 +35,7 @@ for file in config_files[2:3]:
     obs_cov = config["Observation covariance"]
     shift = config['Shift'][0]
     obs_gap = config["Observation gap"]
-    model, gen_path = Lorenz63_xy.get_model(size=ev_time, prior_cov=prior_cov, obs_cov=obs_cov,  shift=shift, obs_gap=obs_gap)
+    model, gen_path = Lorenz63_x.get_model(size=ev_time, prior_cov=prior_cov, obs_cov=obs_cov,  shift=shift, obs_gap=obs_gap)
 
     # set filter parameters
     particle_count = config["Particle count"]
@@ -55,7 +55,7 @@ for file in config_files[2:3]:
 
     # assimilate
     print("starting assimilation ... ")
-    pf = gpf.GeneticPF(model, particle_count = particle_count, record_path = cc.res_path + '/assimilation.h5')
+    pf = gpf.GeneticPF(model, particle_count = particle_count, record_path = cc.res_path + '/assimilation.h5', max_generations_per_step=20)
     pf.update(observed_path, resampling_method = resampling_method, threshold_factor = resampling_threshold, method = 'mean', noise=noise)
 
     # document results
@@ -64,6 +64,7 @@ for file in config_files[2:3]:
     pf.plot_trajectories(hidden_path, coords_to_plot=[0, 1, 2], file_path=cc.res_path + '/trajectories.png', measurements=False)
     pf.compute_error(hidden_path)
     pf.plot_error(file_path=cc.res_path + '/l2_error.png')
+    print('rmse = {}'.format(pf.rmse))
     config['Status'] = pf.status
     cc.add_params(config)
     cc.write(mode='json')

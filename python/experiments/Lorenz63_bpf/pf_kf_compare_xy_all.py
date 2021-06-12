@@ -22,4 +22,5 @@ kf_experiments = ['xy_kf_analysis/{}.npy'.format(i) for i in range(5)]
 
 for i in range(5):
     pf_kf_comp = cd.PFvsKF(pf_experiments[i], kf_experiments[i])
-    pf_kf_comp.compare_with_resampling(num_samples=5000, k=100, noise_cov=0.01, saveas='xy_pf_vs_kf/{}'.format(i))
+    #pf_kf_comp.compare_with_resampling(num_samples=5000, k=100, noise_cov=0.01, saveas='xy_pf_vs_kf/{}'.format(i))
+    pf_kf_comp.compare_with_resampling(saveas='xy_pf_vs_kf/{}'.format(i))

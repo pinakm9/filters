@@ -1,13 +1,15 @@
 import filter as fl 
 import  numpy as np
 import copy
+import tables 
+import plot 
 
 class GeneticPF(fl.ParticleFilter):
 
-    def __init__(self, model, particle_count, record_path = None, particles = None, generations_per_step=3,\
+    def __init__(self, model, particle_count, record_path = None, particles = None, max_generations_per_step=3,\
                  mutation_prob=0.2, ellitism_factor=0.5, max_population=2000, mutation_size=0.01):
         super().__init__(model=model, particle_count=particle_count, record_path=record_path, particles=particles)
-        self.generations_per_step = generations_per_step
+        self.max_generations_per_step = max_generations_per_step
         self.mutation_prob = mutation_prob 
         self.ellitism_factor = ellitism_factor
         self.max_population = max_population
@@ -92,6 +94,7 @@ class GeneticPF(fl.ParticleFilter):
         idx = np.argsort(self.weights)
         self.particles = np.array(self.current_population)[idx][::-1][:self.particle_count]
         self.weights = np.array(self.weights)[idx][::-1][:self.particle_count]
+        #print(self.weights)
 
     def one_step_update(self, observation, particles = None):
         """
@@ -108,26 +111,45 @@ class GeneticPF(fl.ParticleFilter):
 
         self.breed_first_gen()
         self.select(observation)
-        for _ in range(self.generations_per_step):
+        gen = 0
+        while self.weights.sum() < 100.0 and gen < self.max_generations_per_step: 
             self.breed_later_gen()
             self.select(observation)
+            gen += 1
 
         # normalize weights
         print('step: {}, sum of weights: {}'.format(self.current_time, self.weights.sum()))
         self.weights /= self.weights.sum()
         if np.isnan(self.weights[0]) or np.isinf(self.weights[0]):
             self.status = 'faliure'
+     
+    def record(self, observation):
+        """
+        Description:
+            Records assimilation steps
+        """
+        if self.recording:
+            hdf5 = tables.open_file(self.record_path, 'a')
+            # record weights
+            weights = hdf5.create_table(hdf5.root.weights, 'time_' + str(self.current_time), self.weight_description)
+            weights.append(self.weights)
+            weights.flush()
+            # record particles
+            particles = hdf5.create_table(hdf5.root.particles, 'time_' + str(self.current_time), self.particle_description)
+            particles.append(self.particles)
+            particles.flush()
+            # record observation
+            hdf5.root.observation.append(np.array(observation, dtype = np.float64))
+            hdf5.root.observation.flush()
+            hdf5.close()
 
-
-    def update(self, observations, threshold_factor = 0.1, method = 'mean', resampling_method = 'systematic', record_path = None, **params):
+    def update(self, observations, method = 'mean', record_path = None, **params):
         """
         Description:
             Updates using all the obeservations using self.one_step_update and self.resample
         Args:
             observations: list/np.array of observations to pass to self.one_step_update
-            threshold_factor: fraction of self.particle_count which the effective particle count has to surpass in order to stop resampling
             method: method for computing trajectory, default = 'mean'
-            resampling method: method for resampling, default = 'systematic'
             record_path: file path for storing evolution of particles
         Returns:
             self.weights
@@ -135,7 +157,6 @@ class GeneticPF(fl.ParticleFilter):
         self.observed_path = observations
         for observation in self.observed_path:
             self.one_step_update(observation = observation)
-            self.resample(threshold_factor = 0.0, method = resampling_method, **params)
             if method is not None:
                 self.compute_trajectory(method = method)
             self.record(observation)
@@ -143,3 +164,12 @@ class GeneticPF(fl.ParticleFilter):
         if not hasattr(self, 'status'):
             self.status = 'success'
         return self.status
+
+    def plot_error(self, show = False, file_path = None, title = None, semilogy = False):
+        signals = [self.abs_error]
+        labels = ['absolute error']
+        styles = [{'linestyle':'solid'}]
+        plt_fns = ['semilogy' if semilogy else 'plot']
+        colors = ['black']
+        plot.SignalPlotter(signals = signals).plot_signals(labels = labels, styles = styles, plt_fns = plt_fns, colors = colors,\
+                            show = show, file_path = file_path, title = title)

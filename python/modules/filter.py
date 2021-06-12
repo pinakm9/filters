@@ -63,10 +63,10 @@ class Filter():
             Computes error in assimilation for a random path
         """
         self.error = hidden_path - self.computed_trajectory
-        self.rmse = np.linalg.norm(self.error)/np.sqrt(len(hidden_path))
         self.error_mean = np.mean(self.error, axis = 0)
         self.error_cov = np.std(self.error, axis = 0)
         self.abs_error = np.array([np.linalg.norm(error) for error in self.error])
+        self.rmse = np.sqrt(sum([error**2 for error in self.abs_error]))/np.sqrt(len(hidden_path))
 
     def plot_trajectories(self, hidden_path, coords_to_plot, show = False, file_path = None, title = None, measurements = False):
         signals = [hidden_path, self.computed_trajectory]

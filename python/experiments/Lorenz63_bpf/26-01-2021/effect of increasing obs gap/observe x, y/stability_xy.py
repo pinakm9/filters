@@ -12,7 +12,7 @@ import os
 
 np.random.seed(2021)
 
-expr_folder = 'obs_gap_0.8'
+expr_folder = 'obs_gap_0.4'
 assml_file = 'assimilation.h5'
 experiments = [expr_folder + '/' + folder + '/' + assml_file for folder in os.listdir(expr_folder)[:-2]]
 num_exprs = len(experiments)
@@ -23,5 +23,5 @@ for i in range(num_exprs):
         id2 = experiments[j].split('/')[1].split('_')[0]
         print('comparing {} vs {} ...'.format(id1, id2))
         pf_comp = cd.PFComparison(experiments[i], experiments[j])
-        pf_comp.compare_with_resampling(num_samples=5000, k=100, noise_cov=0.01, saveas='stability_{}/{}_vs_{}'\
+        pf_comp.compare_with_resampling(num_samples=100, k=10, noise_cov=0.01, saveas='stability_{}/{}_vs_{}'\
                                 .format(expr_folder.split('_')[-1], id1, id2))

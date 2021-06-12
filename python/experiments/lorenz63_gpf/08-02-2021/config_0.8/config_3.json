@@ -1,10 +1,10 @@
 {
 "Deterministic": "True",
 "Model": "Lorenz63_xy",
-"Number of assimilation steps": 50,
+"Number of assimilation steps": 10,
 "Numpy seed": 2021,
-"Observation covariance": 0.1,
-"Observation gap": 0.8,
+"Observation covariance": 1.0,
+"Observation gap": 0.12,
 "Particle count": 500,
 "Prior covariance": 0.01,
 "Resampling covariance": 0.08,

@@ -6,6 +6,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn import linear_model
 import math
+import bpf_plotter as bpfp
 
 class DistComparison:
     """
@@ -37,7 +38,8 @@ class DistComparison:
         dist, _ = neigh.kneighbors(self.ensemble_1)
         s_k = [dist[i][k - 1] for i in range(self.n)]
         #print(dist.shape)
-        return sum([np.log(s_k[i]/r_k[i]) for i in range(self.n)]) * self.dim / self.n +  self.dim * np.log(self.m/(self.n-1))
+        kl = sum([np.log(s_k[i]/r_k[i]) for i in range(self.n)]) * self.dim / self.n +  self.dim * np.log(self.m/(self.n-1))
+        return kl
 
     def systematic_noisy_resample(self, ensemble, weights, num_samples, noise_cov=0.01):
         """
@@ -174,23 +176,26 @@ class PFComparison:
         hdf5_1.close()
         hdf5_2.close()
         pd.DataFrame(kl_dist).to_csv(saveas + '.csv' if saveas is not None else 'filter_comparison.csv', header=None, index=None)
-        plt.figure(figsize = (8, 8))
-        x = np.array(list(range(iterations)))
-        idx_1 = np.where(kl_dist >= 0.0)
-        idx_2 = np.where(kl_dist < 0.0)
-        x_, y_ = x[idx_1], kl_dist[idx_1]
-        plt.scatter(x_, y_, color='blue')
-        plt.scatter(x[idx_2], kl_dist[idx_2], color='red')
-        plt.plot(x, np.zeros(len(x)), color='green', label='x-axis')
-        plt.xlabel('assimilation step')
-        plt.ylabel('approximate KL divergence')
-        plt.title('{} vs {}'.format(self.file_1[:-3], self.file_2[:-3]))
-        plt.legend()
-        if saveas is None:
-            saveas = 'filter_comparison.png'
+        if saveas is not None:
+            plt.figure(figsize = (8, 8))
+            x = np.array(list(range(iterations)))
+            idx_1 = np.where(kl_dist >= 0.0)
+            idx_2 = np.where(kl_dist < 0.0)
+            x_, y_ = x[idx_1], kl_dist[idx_1]
+            plt.scatter(x_, y_, color='blue')
+            plt.scatter(x[idx_2], kl_dist[idx_2], color='red')
+            plt.plot(x, np.zeros(len(x)), color='green', label='x-axis')
+            plt.xlabel('assimilation step')
+            plt.ylabel('approximate KL divergence')
+            plt.title('{} vs {}'.format(self.file_1[:-3], self.file_2[:-3]))
+            plt.legend()
+            if saveas is None:
+                saveas = 'filter_comparison.png'
+            else:
+                saveas = saveas + '.png'
+            plt.savefig(saveas)
         else:
-            saveas = saveas + '.png'
-        plt.savefig(saveas)
+            return kl_dist
 
 
 class PFvsKF:
@@ -200,33 +205,54 @@ class PFvsKF:
 
     @ut.timer
     def compare_with_resampling(self, num_samples, k, noise_cov=0.01, saveas=None):
-         hdf5_1 = tables.open_file(self.pf_file, 'r')
-         npy_2 = np.load(self.kf_file)
-         iterations = len(hdf5_1.root.observation.read().tolist())
-         kl_dist = np.zeros(iterations, dtype=np.float32)
-         for itr in range(iterations):
-             ensemble_1 = np.array(getattr(hdf5_1.root.particles, 'time_' + str(itr)).read().tolist())
-             ensemble_2 = npy_2[itr].T
-             weights_1 = np.array(getattr(hdf5_1.root.weights, 'time_' + str(itr)).read().tolist()).flatten()
-             dist_comp = DistComparison(ensemble_1, ensemble_2, weights_1)
-             kl_dist[itr] = dist_comp.compute_KL_with_weights(num_samples, k, noise_cov)
-         hdf5_1.close()
-         pd.DataFrame(kl_dist).to_csv(saveas + '.csv' if saveas is not None else 'filter_comparison.csv', header=None, index=None)
-         plt.figure(figsize = (8, 8))
-         x = np.array(list(range(iterations)))
-         idx_1 = np.where(kl_dist >= 0.0)
-         idx_2 = np.where(kl_dist < 0.0)
-         x_, y_ = x[idx_1], kl_dist[idx_1]
-         plt.scatter(x_, y_, color='blue')
-         plt.scatter(x[idx_2], kl_dist[idx_2], color='red')
-         plt.plot(x, np.zeros(len(x)), color='green', label='x-axis')
-         plt.xlabel('assimilation step')
-         plt.ylabel('approximate KL divergence')
-         plt.title('{} vs {}'.format(self.pf_file[:-3], self.kf_file[:-4]))
-         plt.legend()
-         if saveas is None:
-             saveas = 'filter_comparison.png'
-         else:
-             saveas = saveas + '.png'
-         plt.savefig(saveas)
-         del npy_2
+        hdf5_1 = tables.open_file(self.pf_file, 'r')
+        npy_2 = np.load(self.kf_file)
+        iterations = len(hdf5_1.root.observation.read().tolist())
+        kl_dist = np.zeros(iterations, dtype=np.float32)
+        for itr in range(iterations):
+            ensemble_1 = np.array(getattr(hdf5_1.root.particles, 'time_' + str(itr)).read().tolist())
+            ensemble_2 = npy_2[itr].T
+            weights_1 = np.array(getattr(hdf5_1.root.weights, 'time_' + str(itr)).read().tolist()).flatten()
+            dist_comp = DistComparison(ensemble_1, ensemble_2, weights_1)
+            kl_dist[itr] = dist_comp.compute_KL_with_weights(num_samples, k, noise_cov)
+        hdf5_1.close()
+        
+        if saveas is not None:
+            pd.DataFrame(kl_dist).to_csv(saveas + '.csv', header=None, index=None)
+            plt.figure(figsize = (8, 8))
+            x = np.array(list(range(iterations)))
+            idx_1 = np.where(kl_dist >= 0.0)
+            idx_2 = np.where(kl_dist < 0.0)
+            x_, y_ = x[idx_1], kl_dist[idx_1]
+            plt.scatter(x_, y_, color='blue')
+            plt.scatter(x[idx_2], kl_dist[idx_2], color='red')
+            plt.plot(x, np.zeros(len(x)), color='green', label='x-axis')
+            plt.xlabel('assimilation step')
+            plt.ylabel('approximate KL divergence')
+            plt.title('{} vs {}'.format(self.pf_file[:-3], self.kf_file[:-4]))
+            plt.legend()
+            if saveas is None:
+                saveas = 'filter_comparison.png'
+            else:
+                saveas = saveas + '.png'
+            plt.savefig(saveas)
+            del npy_2
+        else:
+            return kl_dist
+
+    @ut.timer
+    def compare_with_ensemble_plots(self, saveas=None):
+        hdf5_1 = tables.open_file(self.pf_file, 'r')
+        npy_2 = np.load(self.kf_file)
+        iterations = len(hdf5_1.root.observation.read().tolist())
+        ens_plotter = bpfp.EnsemblePlotter(pt_size=80)
+        for itr in range(iterations):
+            ensemble_1 = np.array(getattr(hdf5_1.root.particles, 'time_' + str(itr)).read().tolist())
+            ensemble_2 = npy_2[itr].T
+            weights_1 = np.array(getattr(hdf5_1.root.weights, 'time_' + str(itr)).read().tolist()).flatten()
+            weights_2 = np.ones(len(ensemble_2)) / len(ensemble_2)
+            ens_plotter.plot_weighted_ensembles_2D([ensemble_1, ensemble_2], labels=['Particle Filter', 'EnKF'],\
+                                                     weights=[weights_1, weights_2], weight_histogram=False, file_path=saveas)
+        hdf5_1.close()
+        
+        

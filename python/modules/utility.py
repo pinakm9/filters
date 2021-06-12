@@ -2,7 +2,9 @@
 from time import time
 import numpy as np
 import random
-
+import contextlib
+import os, io
+import sys
 
 def timer(func):
 	"""
@@ -87,3 +89,20 @@ def TV_dist_MC_avg(p, q, samples, batch):
 			result +=np.abs(p(x)-q(x))
 		dist += result/batch
 	return 0.5*dist/(len(samples)/batch)
+
+
+@contextlib.contextmanager
+def silencer():
+    save_stdout = sys.stdout
+    sys.stdout = io.BytesIO()
+    yield
+    sys.stdout = save_stdout
+
+class HiddenPrints:
+    def __enter__(self):
+        self._original_stdout = sys.stdout
+        sys.stdout = open(os.devnull, 'w')
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stdout.close()
+        sys.stdout = self._original_stdout
